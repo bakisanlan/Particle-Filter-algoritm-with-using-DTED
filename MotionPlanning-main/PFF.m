@@ -16,6 +16,8 @@ aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 % sensor property
 alt_sens_std_err = 10;  % altimeter sensor std error value
 imu_sens_std_err = [deg2rad(5) 10];  % imu sensor u1 = heading,  u2 = velocity
+% alt_sens_std_err = 2;  % altimeter sensor std error value
+% imu_sens_std_err = [deg2rad(2) 5];  % imu sensor u1 = heading,  u2 = velocity
 
 % particles property
 N = 5000; % number of particles
@@ -52,22 +54,22 @@ for i=1:step
     %calculating error between estimated and real pos
     estim_error = norm(mean' - aircraft_pos(1:2));
 
-    p = plot(particles(:,1),particles(:,2),'c.',aircraft_pos(1),aircraft_pos(2),'k+', mean(1),mean(2),'*r');
+    p = plot(particles(:,2),particles(:,1),'c.',aircraft_pos(2),aircraft_pos(1),'k+', mean(2),mean(1),'*r');
     p(1).MarkerSize = 1;
     p(2).MarkerSize = 5;
     p(3).MarkerSize = 5;
     legend('Particles','True Position','PF Estimation')
-    xlim([aircraft_pos(1)-3000 aircraft_pos(1)+3000]);
-    ylim([aircraft_pos(2)-3000 aircraft_pos(2)+3000]);
+    xlim([aircraft_pos(2)-3000 aircraft_pos(2)+3000]);
+    ylim([aircraft_pos(1)-3000 aircraft_pos(1)+3000]);
     xlabel('East(m)')
     ylabel('North(m)')
     title('One Step Particles Aircraft Motion and Particles')
     grid on
     % adding text that shows error
-    text(aircraft_pos(1)-2500,aircraft_pos(2)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
+    text(aircraft_pos(2)-2500,aircraft_pos(1)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
 
     % pause simulation for seeing clearly step by step
-    pause(1);
+    pause(0.1);
     clf(fig)
 
     % PARTICLE FILTER ALGORITHM
@@ -96,7 +98,7 @@ for i=1:step
     [mean, var] = estimate(particles, weights);
 
     % change input for seeing different case
-    u(1) = u(1) + deg2rad(0);
+    u(1) = u(1) + deg2rad(-5);
 
 end
 
@@ -111,7 +113,7 @@ lla = ned2lla([x_max_vehic y_max_vehic alt], [lla0 alt],'ellipsoid');
 h1.visualizeDTED(lla0,lla)
 
 figure(2);
-p = plot(particles_history(:,1),particles_history(:,2),'c.',real_pos(:,1),real_pos(:,2),'k+', estimated_pos(:,1),estimated_pos(:,2),'*r');
+p = plot(particles_history(:,2),particles_history(:,1),'c.',real_pos(:,2),real_pos(:,1),'k+', estimated_pos(:,2),estimated_pos(:,1),'*r');
 p(1).MarkerSize = 1;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
