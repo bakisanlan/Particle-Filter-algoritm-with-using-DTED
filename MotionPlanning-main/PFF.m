@@ -3,19 +3,23 @@ clc;clear;
 %% SIMULATION PARAMETERS
 
 h1 = DigitalElevationModel;
-dted = h1.getMetricGridElevationMap([41 29],[41.30 29.20], 4);
+boundary_left_lower = [41 29];
+boundary_right_upper = [42.30 30.30];
+dist_boundary_hipo = norm(lla2ned([boundary_right_upper 0], [ boundary_left_lower 0],'ellipsoid'));
+ndownsample = 4;
+dted = h1.getMetricGridElevationMap(boundary_left_lower, boundary_right_upper, ndownsample);
 
-% aircraft property
+% aircraft states and inputs
 alt = 1000; % constant altitude of aircraft
 velocity = 200; % m/s
 heading = deg2rad(90); %rad
 u = [heading ; velocity]; % input vector
-gps_lost_pos = [2000 ; 2000]; % x and y position when GPS lost
+gps_lost_pos = [10000 ; 10000]; % x and y position when GPS lost
 aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 
 % sensor property
-alt_sens_std_err = 10;  % altimeter sensor std error value
-imu_sens_std_err = [deg2rad(5) 10];  % imu sensor u1 = heading,  u2 = velocity
+alt_sens_std_err = 1;  % altimeter sensor std error value
+imu_sens_std_err = [deg2rad(1) 10];  % imu sensor u1 = heading,  u2 = velocity
 % alt_sens_std_err = 2;  % altimeter sensor std error value
 % imu_sens_std_err = [deg2rad(2) 5];  % imu sensor u1 = heading,  u2 = velocity
 
@@ -29,8 +33,14 @@ particles = create_uniform_particles(x_range, y_range, hdg_range, N); %creating 
 weights = ones(N,1)/N;
 
 % simulation parameters
-dt = 5;
-step = 100/dt;
+% for preventing going to the boundary of loaded DTED map so taking NaN
+% values from interp2, we added some preprocess for step value
+min_time = dist_boundary_hipo / velocity;   % the time that shortest path time
+sim_time = 100;
+sim_time = min(0.5*min_time,sim_time);
+dt = 1;
+step = round(sim_time/dt);
+
 
 % creating historical array for plotting purposes
 real_pos = zeros(step,2);
@@ -69,7 +79,7 @@ for i=1:step
     text(aircraft_pos(2)-2500,aircraft_pos(1)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
 
     % pause simulation for seeing clearly step by step
-    pause(0.1);
+    %pause(1);
     clf(fig)
 
     % PARTICLE FILTER ALGORITHM
@@ -90,7 +100,11 @@ for i=1:step
 
     % resample if needed
     if neff(weights) < N/2
+        %indexes = resampleMultinomial(weights);
+        %indexes = resampleResidual(weights);
+        %indexes = resampleStratified(weights);
         indexes = resampleSystematic(weights);
+
         [particles, weights] = resample_from_index(particles, indexes);
     end
 
@@ -98,7 +112,7 @@ for i=1:step
     [mean, var] = estimate(particles, weights);
 
     % change input for seeing different case
-    u(1) = u(1) + deg2rad(-5);
+    u(1) = u(1) + deg2rad(0);
 
 end
 
@@ -122,6 +136,7 @@ xlabel('East(m)')
 ylabel('North(m)')
 title('Particles Aircraft Motion and Particles')
 grid on
+axis equal
 
 %% FUNCTION THAT IS USED FOR PARTICLE FILTER
 
