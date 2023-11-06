@@ -1,20 +1,13 @@
-clc;clear;
+clc;clear;close all;
 
 %% SIMULATION PARAMETERS
-
-h1 = DigitalElevationModel;
-boundary_left_lower = [41 29];
-boundary_right_upper = [42.30 30.30];
-dist_boundary_hipo = norm(lla2ned([boundary_right_upper 0], [ boundary_left_lower 0],'ellipsoid'));
-ndownsample = 4;
-dted = h1.getMetricGridElevationMap(boundary_left_lower, boundary_right_upper, ndownsample);
 
 % aircraft states and inputs
 alt = 1000; % constant altitude of aircraft
 velocity = 200; % m/s
-heading = deg2rad(90); %rad
+heading = deg2rad(0); %rad
 u = [heading ; velocity]; % input vector
-gps_lost_pos = [10000 ; 10000]; % x and y position when GPS lost
+gps_lost_pos = [5000 ; 5000]; % x and y position when GPS lost
 aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 
 % sensor property
@@ -35,29 +28,62 @@ weights = ones(N,1)/N;
 % simulation parameters
 % for preventing going to the boundary of loaded DTED map so taking NaN
 % values from interp2, we added some preprocess for step value
-min_time = dist_boundary_hipo / velocity;   % the time that shortest path time
-sim_time = 100;
-sim_time = min(0.5*min_time,sim_time);
-dt = 1;
-step = round(sim_time/dt);
-
+% min_time = dist_boundary_hipo / velocity;   % the time that shortest path time
+% sim_time = 100;
+% sim_time = min(0.5*min_time,sim_time);
+dt = 5;
+step = 20;
 
 % creating historical array for plotting purposes
 real_pos = zeros(step,2);
 estimated_pos = zeros(step,2);
 particles_history = zeros(step*N,2);
 
-% plot figure
-fig = figure(1);
 
+% Finding left lower and right upper corner of DTED maps for interpolation
+% and plotting
+for j= 1:step
+    real_pos(j,:) = aircraft_pos(1:2);
+    aircraft_pos = aircraft_step(aircraft_pos,u,[0 0],dt); 
+end
 
+% reset aircraft_pos values to initial values after collecting real_pos
+aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
+
+ref_lla = [41 29];
+x_max_vehic = max(real_pos(:,1));
+y_max_vehic = max(real_pos(:,2));
+x_min_vehic = min(real_pos(:,1));
+y_min_vehic = min(real_pos(:,2));
+boundary_right_upper_lla = ned2lla([x_max_vehic y_max_vehic 0], [ref_lla 0],'flat');
+boundary_left_lower_lla = ned2lla(-[x_min_vehic y_min_vehic 0], [ref_lla 0],'flat');
+
+h1 = DigitalElevationModel;
+%boundary_right_upper = [41.30 29.30];
+%dist_boundary_hipo = norm(lla2ned([boundary_right_upper_lla 0], [boundary_left_lower_lla 0],'ellipsoid'));
+ndownsample = 4;
+ef = 1;  % expanding DTED area with a factor for preventing NaN values
+dted = h1.getMetricGridElevationMap(boundary_left_lower_lla-ef, boundary_right_upper_lla+ef, ndownsample);
+
+% % simulation parameters
+% % for preventing going to the boundary of loaded DTED map so taking NaN
+% % values from interp2, we added some preprocess for step value
+% min_time = dist_boundary_hipo / velocity;   % the time that shortest path time
+% sim_time = 100;
+% sim_time = min(0.5*min_time,sim_time);
+% dt = 5;
+% step = round(sim_time/dt);
+
+% initilizating estimation values
 [mean, var] = estimate(particles, weights);
+
+fig = figure(1);
 
 % Simulation of PF
 for i=1:step
 
     % Plotting and all other things for visulization
-    real_pos(i,:) = aircraft_pos(1:2);
+    %real_pos(i,:) = aircraft_pos(1:2);
     estimated_pos(i,:) = mean;
     particles_history(1+N*(i-1):N*i,:) = particles(:,1:2);
 
@@ -118,25 +144,41 @@ end
 
 close(fig)
 
-% demonstration of all step in one figure and visualization of DTED map
-lla0 = [41 29];   % left corner of DTED visualization
-                  % calulating right corner of DTED visualization
-x_max_vehic = max(real_pos(:,1));
-y_max_vehic = max(real_pos(:,2));
-lla = ned2lla([x_max_vehic y_max_vehic alt], [lla0 alt],'ellipsoid');
-h1.visualizeDTED(lla0,lla)
+% % demonstration of all step in one figure and visualization of DTED map
+% boundary_left_lower = [41 29];   % left corner of DTED visualization
+%                   % calulating right upper corner of DTED visualization
+% x_max_vehic = max(real_pos(:,1));
+% y_max_vehic = max(real_pos(:,2));
+% lla = ned2lla([x_max_vehic y_max_vehic alt], [lla0 alt],'ellipsoid');
 
-figure(2);
-p = plot(particles_history(:,2),particles_history(:,1),'c.',real_pos(:,2),real_pos(:,1),'k+', estimated_pos(:,2),estimated_pos(:,1),'*r');
-p(1).MarkerSize = 1;
-p(2).MarkerSize = 5;
-p(3).MarkerSize = 5;
-legend('Particles','True Position','PF Estimation')
-xlabel('East(m)')
-ylabel('North(m)')
-title('Particles Aircraft Motion and Particles')
-grid on
-axis equal
+%[hF2 , hF3] = h1.visualizeDTED(boundary_left_lower_lla -ef ,boundary_right_upper_lla + ef);
+[hF2 , hF3] = h1.visualizeDTED(ref_lla,boundary_right_upper_lla);
+
+figure(1) = hF2;
+figure(2) = hF3;
+
+hold on 
+particles_lla = ned2lla([particles_history(:,1) particles_history(:,2) -400*ones(length(particles_history(:,1)),1)],[ref_lla 0],'flat');
+p = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'r.');%,real_pos(:,2),real_pos(:,1),700*ones(length(real_pos(:,1))),'k+', estimated_pos(:,2),estimated_pos(:,1),700*ones(length(real_pos(:,1))),'*r');
+%xlim([boundary_left_lower_lla(2) boundary_right_upper_lla(2)])
+
+% adjusting aspect ratio of X and Y data equally spaced
+cur_aspect = daspect;
+daspect([1 1 10000]);
+set(gca,'BoxStyle','full','Box','on')
+
+
+% figure(3);
+% p = plot(particles_history(:,2),particles_history(:,1),'c.',real_pos(:,2),real_pos(:,1),'k+', estimated_pos(:,2),estimated_pos(:,1),'*r');
+% p(1).MarkerSize = 1;
+% p(2).MarkerSize = 5;
+% p(3).MarkerSize = 5;
+% legend('Particles','True Position','PF Estimation')
+% xlabel('East(m)')
+% ylabel('North(m)')
+% title('Particles Aircraft Motion and Particles')
+% grid on
+% axis equal
 
 %% FUNCTION THAT IS USED FOR PARTICLE FILTER
 

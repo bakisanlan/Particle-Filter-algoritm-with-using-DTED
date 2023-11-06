@@ -79,7 +79,7 @@ classdef DigitalElevationModel < handle
             dted = [{x}, {y}, {z}];
         end
 
-        function visualizeDTED(obj,lla,ll0)
+        function [hF2 ,hF3] = visualizeDTED(obj,lla,ll0)
             %visualizeDTED For testing purposes.
             %   This file loads and visualize DTED at (41N, 29E) of the
             %   Bosphorus.
@@ -96,12 +96,12 @@ classdef DigitalElevationModel < handle
             geoshow(flip(As),Rs,"DisplayType","surface");
             cmap = demcmap(As,16); colormap(hF2,cmap); colorbar;
 
-            % hF3 = figure; clf;
-            % mesh(lons, lats, As);
-            % pbaspect([1 1 0.1]); view(-7,31);
-            % axis([min(lons) max(lons) min(lats) max(lats)]);
-            % xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
-            % colormap(hF3,cmap); colorbar;
+            hF3 = figure; clf;
+            mesh(lons, lats, As);
+            %pbaspect([1 1 0.05]); %view(-7,31);
+            axis([min(lons) max(lons) min(lats) max(lats)]);
+            xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
+            colormap(hF3,cmap); colorbar;
         end
 
     end
