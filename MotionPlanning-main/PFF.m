@@ -12,10 +12,12 @@ gps_lost_pos = [5000 ; 5000]; % x and y position when GPS lost
 aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 
 % sensor property
-alt_sens_std_err = 1;  % altimeter sensor std error value
+% 0 or close to 0 altitude error cause to particles gets very very lower
+% probability from pdf so resampling will not working very well
+alt_sens_std_err = 5;  % altimeter sensor std error valu
+% IMU error provide exploration of particles rather than exploit roughly 
 imu_sens_std_err = [deg2rad(1) 10];  % imu sensor u1 = heading,  u2 = velocity
-% alt_sens_std_err = 2;  % altimeter sensor std error value
-% imu_sens_std_err = [deg2rad(2) 5];  % imu sensor u1 = heading,  u2 = velocity
+
 
 % particles property
 N = 5000; % number of particles
@@ -27,11 +29,6 @@ particles = create_uniform_particles(x_range, y_range, hdg_range, N); %creating 
 weights = ones(N,1)/N;
 
 % simulation parameters
-% for preventing going to the boundary of loaded DTED map so taking NaN
-% values from interp2, we added some preprocess for step value
-% min_time = dist_boundary_hipo / velocity;   % the time that shortest path time
-% sim_time = 100;
-% sim_time = min(0.5*min_time,sim_time);
 dt = 5;
 step = 20;
 
@@ -39,7 +36,6 @@ step = 20;
 real_pos = zeros(step,2);
 estimated_pos = zeros(step,2);
 particles_history = zeros(step*N,2);
-
 
 % Finding left lower and right upper corner of DTED maps for interpolation
 % and plotting
@@ -52,6 +48,7 @@ end
 % reset aircraft_pos values to initial values after collecting real_pos
 aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 
+% finding baundary of DTED map based on aircraft motion
 ref_lla = [41 29];
 x_max_vehic = max(real_pos(:,1));
 y_max_vehic = max(real_pos(:,2));
@@ -61,21 +58,12 @@ emapf = 5000;                 %expanding map in metrees to N and E direction for
 boundary_right_upper_lla = ned2lla([x_max_vehic+emapf y_max_vehic+emapf 0], [ref_lla 0],'flat');
 boundary_left_lower_lla = ned2lla(-[x_min_vehic-emapf y_min_vehic-emapf 0], [ref_lla 0],'flat');
 
+% creating DTED value for interpolation step
 h1 = DigitalElevationModel;
-%boundary_right_upper = [41.30 29.30];
-%dist_boundary_hipo = norm(lla2ned([boundary_right_upper_lla 0], [boundary_left_lower_lla 0],'ellipsoid'));
 ndownsample = 4;
 ef = 1;  % expanding DTED area with a factor for preventing NaN values
 dted = h1.getMetricGridElevationMap(boundary_left_lower_lla-ef, boundary_right_upper_lla+ef, ndownsample);
 
-% % simulation parameters
-% % for preventing going to the boundary of loaded DTED map so taking NaN
-% % values from interp2, we added some preprocess for step value
-% min_time = dist_boundary_hipo / velocity;   % the time that shortest path time
-% sim_time = 100;
-% sim_time = min(0.5*min_time,sim_time);
-% dt = 5;
-% step = round(sim_time/dt);
 
 % initilizating estimation values
 [mean, var] = estimate(particles, weights);
@@ -83,9 +71,9 @@ dted = h1.getMetricGridElevationMap(boundary_left_lower_lla-ef, boundary_right_u
 % resetting heading input
 u(1) = deg2rad(0); %rad
 
+% figure for seeing estimation process of particles step by step
 fig = figure(1);
 
-r = 1;
 %% Simulation of PF
 for i=1:step
 
@@ -97,7 +85,10 @@ for i=1:step
     %calculating error between estimated and real pos
     estim_error = norm(mean' - aircraft_pos(1:2));
 
-    p = plot(particles(:,2),particles(:,1),'c.',aircraft_pos(2),aircraft_pos(1),'k+', mean(2),mean(1),'*r');
+    % plot of estimation process of particles step by step
+    p = plot(particles(:,2),particles(:,1),'y.', ...
+             aircraft_pos(2),aircraft_pos(1),'r+', ...
+             mean(2),mean(1),'*b');
     p(1).MarkerSize = 1;
     p(2).MarkerSize = 5;
     p(3).MarkerSize = 5;
@@ -112,7 +103,7 @@ for i=1:step
     text(aircraft_pos(2)-2500,aircraft_pos(1)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
 
     % pause simulation for seeing clearly step by step
-    pause(1);
+    pause(0.1);
     clf(fig)
 
     % PARTICLE FILTER ALGORITHM
@@ -124,7 +115,6 @@ for i=1:step
 
     % move particles for Particle Filter algorithm and finding elevation
     % with DTED
-    particles_past = particles;
     particles = particle_step(particles, u,imu_sens_std_err ,dt);
     particles_elevation = find_elev_particles(particles,dted,alt ,alt_sens_std_err, N);
 
@@ -137,9 +127,6 @@ for i=1:step
         %indexes = resampleResidual(weights);
         %indexes = resampleStratified(weights);
         indexes = resampleSystematic(weights);
-
-        r = r+1;
-
         [particles, weights] = resample_from_index(particles, indexes);
     end
 
@@ -154,19 +141,8 @@ end
 %% Plotting Sim Results
 close(fig)
 
-% % demonstration of all step in one figure and visualization of DTED map
-% boundary_left_lower = [41 29];   % left corner of DTED visualization
-%                   % calulating right upper corner of DTED visualization
-% x_max_vehic = max(real_pos(:,1));
-% y_max_vehic = max(real_pos(:,2));
-% lla = ned2lla([x_max_vehic y_max_vehic alt], [lla0 alt],'ellipsoid');
-
-%[hF2 , hF3] = h1.visualizeDTED(boundary_left_lower_lla -ef ,boundary_right_upper_lla + ef);
+% 3D Figure of DTED map,particles and estimation figure
 h1.visualizeDTED(ref_lla,boundary_right_upper_lla);
-
-% figure(1) = hF2;
-% figure(2) = hF3;
-
 hold on 
 particles_lla = ned2lla([particles_history(:,1) particles_history(:,2) -alt*ones(length(particles_history(:,1)),1)],[ref_lla 0],'flat');
 real_pos_lla = ned2lla([real_pos(:,1) real_pos(:,2) -alt*ones(length(real_pos(:,1)),1)],[ref_lla 0],'flat');
@@ -179,19 +155,14 @@ p(1).MarkerSize = 1;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
 legend({'DTED Mesh','Particles','True Position','PF Estimation'},Location="best")
-%xlabel('East(m)')
-%ylabel('North(m)')
 title('Particles in 3D DTED Map','FontSize',20)
 grid on
-%xlim([boundary_left_lower_lla(2) boundary_right_upper_lla(2)])
-
 % adjusting aspect ratio of X and Y data equally spaced
 cur_aspect = daspect;
 daspect([1 1 10000]);
 set(gca,'BoxStyle','full','Box','on')
 
-
-
+% 2D Figure of particles and estimation figure
 figure(2);
 p = plot(particles_history(:,2),particles_history(:,1),'y.', ...
                            real_pos(:,2),real_pos(:,1),'r+', ...
