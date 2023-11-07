@@ -79,7 +79,7 @@ classdef DigitalElevationModel < handle
             dted = [{x}, {y}, {z}];
         end
 
-        function [hF2 ,hF3] = visualizeDTED(obj,lla,ll0)
+        function visualizeDTED(obj,lla,ll0)
             %visualizeDTED For testing purposes.
             %   This file loads and visualize DTED at (41N, 29E) of the
             %   Bosphorus.
@@ -89,19 +89,19 @@ classdef DigitalElevationModel < handle
             % geoshow(flip(obj.A),obj.R,"DisplayType","surface");
             % cmap = demcmap(obj.A,16); colormap(hF1,cmap); colorbar;
 
-            hF2 = figure; clf;
-            title('Aircraft DTED Path Map')
+            % hF2 = figure; clf;
+            % title('Aircraft DTED Path Map')
             [As, Rs, lats, lons] = slice(obj,lla,ll0);
-            usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
-            geoshow(flip(As),Rs,"DisplayType","surface");
-            cmap = demcmap(As,16); colormap(hF2,cmap); colorbar;
+            % usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
+            % geoshow(flip(As),Rs,"DisplayType","surface");
+            cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
 
             hF3 = figure; clf;
             mesh(lons, lats, As);
             %pbaspect([1 1 0.05]); %view(-7,31);
             axis([min(lons) max(lons) min(lats) max(lats)]);
             xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
-            colormap(hF3,cmap); colorbar;
+            colormap(hF3,cmap); colorbar('Location','westoutside');
         end
 
     end
