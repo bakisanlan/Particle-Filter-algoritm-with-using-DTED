@@ -72,8 +72,8 @@ classdef DigitalElevationModel < handle
 
             % Note that while xf, and yf might be accurate, scaling
             % liinearly to the rest of the grid points is an approximation.
-            xf = DigitalElevationModel.sphericalDistance([lats(1) lons(1)],[lats(1) lons(end)]);
-            yf = DigitalElevationModel.sphericalDistance([lats(1) lons(1)],[lats(end) lons(1)]);
+            xf = sphericalDistance(obj,[lats(1) lons(1)],[lats(1) lons(end)]);
+            yf = sphericalDistance(obj,[lats(1) lons(1)],[lats(end) lons(1)]);
             x = (0:(nLons-1))'/(nLons-1)*xf;
             y = (0:(nLats-1))'/(nLats-1)*yf;
             dted = [{x}, {y}, {z}];
@@ -106,8 +106,8 @@ classdef DigitalElevationModel < handle
 
     end
 
-    methods(Static)
-        function c = sphericalDistance(ptA,ptB)
+    methods
+        function c = sphericalDistance(obj,ptA,ptB)
             %sphericalDistance Distance between two points on the Earth's
             %surface specified in Geographic Coordinate System.
             %   Given Point A and Point B specified in terms of geodetic

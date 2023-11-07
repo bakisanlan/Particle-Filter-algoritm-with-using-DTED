@@ -14,7 +14,7 @@ aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 % sensor property
 % 0 or close to 0 altitude error cause to particles gets very very lower
 % probability from pdf so resampling will not working very well
-alt_sens_std_err = 5;  % altimeter sensor std error valu
+alt_sens_std_err = 3;  % altimeter sensor std error valu
 % IMU error provide exploration of particles rather than exploit roughly 
 imu_sens_std_err = [deg2rad(1) 10];  % imu sensor u1 = heading,  u2 = velocity
 
@@ -179,11 +179,10 @@ axis equal
 
 %% FUNCTION THAT IS USED FOR PARTICLE FILTER
 
-omer deneme
 
+function particles = create_uniform_particles(x_range, y_range, hdg_range, N)
 % create particles uniform distrubition near to the guess of aircraft
 % position
-function particles = create_uniform_particles(x_range, y_range, hdg_range, N)
 particles = zeros(N,3);
 particles(:, 1) = unifrnd(x_range(1), x_range(2), [N 1]);
 particles(:, 2) = unifrnd(y_range(1), y_range(2), [N 1]);
