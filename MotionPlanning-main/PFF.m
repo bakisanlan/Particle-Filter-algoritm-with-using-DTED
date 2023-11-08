@@ -1,6 +1,5 @@
 clc;clear;close all;
 
-deneme sky
 %% SIMULATION PARAMETERS
 
 % aircraft states and inputs
