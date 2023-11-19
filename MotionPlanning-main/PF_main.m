@@ -5,9 +5,9 @@ tic
 
 % aircraft states and inputs
 alt = 400; % constant altitude of aircraft
-velocity = 200; % m/s
+velocity = 270; % m/s
 heading = deg2rad(0); %rad
-head_inc = 15;
+head_inc = 0;
 u = [heading ; velocity]; % input vector
 gps_lost_pos = [5000 ; 5000]; % x and y position when GPS lost
 aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
@@ -28,8 +28,8 @@ y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
 hdg_range = [0 2*pi];
 
 % simulation parameters
-dt = 5;
-step = 20;
+dt = 1;
+step = 50;
 
 % creating historical array for plotting purposes
 real_pos = zeros(step,2);
@@ -51,7 +51,7 @@ end
 aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 
 % finding baundary of DTED map based on aircraft motion
-ref_lla = [41 29];
+ref_lla = [41.10071636898535, 29.024554581047795];
 x_max_vehic = max(real_pos(:,1));
 y_max_vehic = max(real_pos(:,2));
 x_min_vehic = min(real_pos(:,1));

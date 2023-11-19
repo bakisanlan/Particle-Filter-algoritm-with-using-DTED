@@ -72,11 +72,20 @@ classdef DigitalElevationModel < handle
 
             % Note that while xf, and yf might be accurate, scaling
             % liinearly to the rest of the grid points is an approximation.
+            % yf = sphericalDistance(obj,[lats(1) lons(1)],[lats(1) lons(end)]);
+            % xf = sphericalDistance(obj,[lats(1) lons(1)],[lats(end) lons(1)]);
+            % y = (0:(nLons-1))'/(nLons-1)*yf;
+            % x = (0:(nLats-1))'/(nLats-1)*xf;
+            % z =z';
+            % dted = [{x}, {y}, {z}];
             xf = sphericalDistance(obj,[lats(1) lons(1)],[lats(1) lons(end)]);
             yf = sphericalDistance(obj,[lats(1) lons(1)],[lats(end) lons(1)]);
+
             x = (0:(nLons-1))'/(nLons-1)*xf;
             y = (0:(nLats-1))'/(nLats-1)*yf;
+
             dted = [{x}, {y}, {z}];
+
         end
 
         function visualizeDTED(obj,lla,ll0)
