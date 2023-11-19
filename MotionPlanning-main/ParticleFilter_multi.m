@@ -73,7 +73,7 @@ classdef ParticleFilter_multi < handle
             radar_elev_data = radar_data(:,3);  % 81x1
 
             for i=1:self.N
-                mean_pdf_value_i_pc = mean(normpdf(radar_elev_data',self.elev_particles_pc(self.N,:),self.alt_std))
+                mean_pdf_value_i_pc = mean(normpdf(radar_elev_data',self.elev_particles_pc(self.N,:),self.alt_std));
                 self.weights(self.N) = self.weights(self.N) * mean_pdf_value_i_pc;
             end
 
@@ -120,10 +120,13 @@ classdef ParticleFilter_multi < handle
             for i=1:self.N
                 particle_pc_pos = self.particles(self.N,1:2) + radar_data(:,1:2);
                 self.elev_particles_pc(self.N,:) = interp2(dted{1},dted{2},dted{3},particle_pc_pos(:,2),particle_pc_pos(:,1));
+                %disp(self.elev_particles_pc(self.N,:))
             end
 
             %self.elev_particles_pc = interp2(dted{1},dted{2},dted{3},self.particles(:,1),self.particles(:,2));
             self.elev_particles_pc = self.alt - self.elev_particles_pc + randn(self.N,length(radar_data(:,1)))*self.alt_std;
+            
+
         end
 
         function indx = resample_Systematic(self)
