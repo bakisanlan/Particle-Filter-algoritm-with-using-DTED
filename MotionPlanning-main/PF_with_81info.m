@@ -7,7 +7,7 @@ tic
 
 load("Straight_Level_Flight.mat")
 
-sample = 500;
+sample = 1;
 
 alt = -out.trimmedLogsout.find('xyz_m').Values.Data(1,3); % constant altitude of aircraft
 velocity = out.trimmedLogsout.find('Velocity').Values.Data(1); % m/s
@@ -28,11 +28,11 @@ alt_std = 3;  % altimeter sensor std error valu
 % IMU error provide exploration of particles rather than exploit roughly 
 imu_std = [deg2rad(1) 10];  % imu sensor u1 = heading,  u2 = velocity
 radar_data = out.trimmedLogsout.find('allRadarPoint_Body_m').Values.Data;
-radar_data = radar_data(:,:,1:sample:end);
+radar_data = radar_data(:,:,sample+1:sample:end);
 %a = radar_data(:,:,1);
 
 % particles property
-N = 500; % number of particles
+N = 250; % number of particles
 range_part = 500; % initial particles range among aircraft
 x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
 y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
@@ -40,16 +40,18 @@ hdg_range = [0 2*pi];
 
 % simulation parameters
 %dt = 0.01;
-dt = 1;
-tf = 50;
-step = tf/dt + 1;
+%dt = 1;
+%tf = 50;
+%step = tf/dt + 1;
 step = length(aircraft_pos(:,1));
-dt = tf/(step-1);
+%dt = tf/(step-1);
+dt = norm([aircraft_pos(1,1)-aircraft_pos(2,1), aircraft_pos(1,2)-aircraft_pos(2,2)])/velocity;
 
 % creating historical array for plotting purposes
 %real_pos = aircraft_pos;
 estimated_pos = zeros(step,2);
 particles_history = zeros(step*N,2);
+elev_particles_pc_history = zeros(step*N,81);
 
 % 
 PF = ParticleFilter_multi(N,x_range,y_range,hdg_range,alt_std,imu_std,dt,alt);
@@ -102,7 +104,8 @@ fig = figure(1);
 
 %% Simulation of PF
 for i=1:step
-    i;
+    %i;
+    i
 
     % Plotting and all other things for visulization
     %real_pos(i,:) = aircraft_pos(1:2);
@@ -144,17 +147,21 @@ for i=1:step
 
     % move particles for Particle Filter algorithm and finding elevation
     % with DTED
-    PF.particle_step(u);
 
-    % updating weights of particles
-    PF.update_weights(radar_data,dted)
-
-    % taking mean and var variable for estimation metric
-    [mean, var] = PF.estimate();
-
-    % change input for seeing different case
-    u(1) = u(1) + deg2rad(head_inc);
-
+    if i ~= step
+        % move particles for Particle Filter algorithm and finding elevation
+        % with DTED
+        PF.particle_step(u);
+        % updating weights of particles
+        PF.update_weights(radar_data(:,:,i),dted)
+    
+        % taking mean and var variable for estimation metric
+        [mean, var] = PF.estimate();
+    
+        % change input for seeing different case
+        u(1) = u(1) + deg2rad(head_inc);
+        %elev_particles_pc_history(1+N*(i-1):N*i,:) = PF.elev_particles_pc(:,:)
+    end
 end
 
 %% Plotting Sim Results
@@ -183,7 +190,7 @@ set(gca,'BoxStyle','full','Box','on')
 
 % 2D Figure of particles and estimation figure
 figure(2);
-p = plot(particles_history(:,2),particles_history(:,1),'k.', ...
+p = plot(particles_history(:,2),particles_history(:,1),'y.', ...
                            aircraft_pos(:,2),aircraft_pos(:,1),'r+', ...
                            estimated_pos(:,2),estimated_pos(:,1),'*b');
 p(1).MarkerSize = 1;

@@ -21,7 +21,7 @@ imu_std = [deg2rad(1) 10];  % imu sensor u1 = heading,  u2 = velocity
 
 
 % particles property
-N = 5000; % number of particles
+N = 500; % number of particles
 range_part = 3000; % initial particles range among aircraft
 x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
 y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];

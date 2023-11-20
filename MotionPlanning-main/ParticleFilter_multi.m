@@ -73,8 +73,9 @@ classdef ParticleFilter_multi < handle
             radar_elev_data = radar_data(:,3);  % 81x1
 
             for i=1:self.N
-                mean_pdf_value_i_pc = mean(normpdf(radar_elev_data',self.elev_particles_pc(self.N,:),self.alt_std));
-                self.weights(self.N) = self.weights(self.N) * mean_pdf_value_i_pc;
+                mean_pdf_value_i_pc = mean(normpdf(radar_elev_data',self.elev_particles_pc(i,:),self.alt_std));
+                %disp(size(self.elev_particles_pc(self.N,:)))
+                self.weights(i) = self.weights(i) * mean_pdf_value_i_pc;
             end
 
             %self.weights = self.weights .* normpdf(radar_data,self.particles_elevation,self.alt_std);
@@ -116,16 +117,23 @@ classdef ParticleFilter_multi < handle
     
             %particles_pc_pos = zeros(length(self.radar_data(:,1)),length(self.radar_data(1,:))-1,self.N);  % 81x2xN array
             self.elev_particles_pc = zeros(self.N,length(radar_data(:,1)));            % Nx81 array
+            %length(radar_data(:,1))
+            %disp((self.elev_particles_pc))
             
             for i=1:self.N
-                particle_pc_pos = self.particles(self.N,1:2) + radar_data(:,1:2);
-                self.elev_particles_pc(self.N,:) = interp2(dted{1},dted{2},dted{3},particle_pc_pos(:,2),particle_pc_pos(:,1));
+                particle_pc_pos = self.particles(i,1:2) + radar_data(:,1:2);
+                self.elev_particles_pc(i,:) = interp2(dted{1},dted{2},dted{3},particle_pc_pos(:,2),particle_pc_pos(:,1));
                 %disp(self.elev_particles_pc(self.N,:))
+                %radar_data(:,1:2)
+                %disp(particle_pc_pos())
             end
-
+            %disp(self.particles(250,1:2))
+            %disp((self.elev_particles_pc(499,:)))
             %self.elev_particles_pc = interp2(dted{1},dted{2},dted{3},self.particles(:,1),self.particles(:,2));
             self.elev_particles_pc = self.alt - self.elev_particles_pc + randn(self.N,length(radar_data(:,1)))*self.alt_std;
-            
+            %disp((self.elev_particles_pc(250,:)))
+            %disp(self.alt)
+            % disp(particle_pc_pos())
 
         end
 
