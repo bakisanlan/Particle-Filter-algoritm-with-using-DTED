@@ -95,7 +95,7 @@ dted = h1.getMetricGridElevationMap(boundary_left_lower_lla, boundary_right_uppe
 %h1.visualizeDTED(boundary_left_lower_lla,boundary_right_upper_lla)
 
 % initilizating estimation values
-[mean, var] = PF.estimate();
+[meann, var] = PF.estimate();
 
 % resetting heading input
 u(1) = deg2rad(0); %rad
@@ -114,16 +114,16 @@ for i=1:step
 
     % Plotting and all other things for visulization
     %real_pos(i,:) = aircraft_pos(1:2);
-    estimated_pos(i,:) = mean;
+    estimated_pos(i,:) = meann;
     particles_history(1+N*(i-1):N*i,:) = PF.particles(:,1:2);
 
     %calculating error between estimated and real pos
-    estim_error = norm(mean - aircraft_pos(i,1:2));
+    estim_error = norm(meann - aircraft_pos(i,1:2));
 
     % plot of estimation process of particles step by step
     p = plot(PF.particles(:,2),PF.particles(:,1),'y.', ...
              aircraft_pos(i,2),aircraft_pos(i,1),'r+', ...
-             mean(2),mean(1),'*b');
+             meann(2),meann(1),'*b');
     p(1).MarkerSize = 1;
     p(2).MarkerSize = 5;
     p(3).MarkerSize = 5;
@@ -161,7 +161,7 @@ for i=1:step
         PF.update_weights(radar_data(:,:,i),dted)
     
         % taking mean and var variable for estimation metric
-        [mean, var] = PF.estimate();
+        [meann, var] = PF.estimate();
     
         % change input for seeing different case
         u(1) = u(1) + deg2rad(head_inc);
@@ -222,5 +222,9 @@ ylabel('North(m)')
 title('Particles in 2D Map','FontSize',20)
 grid on
 axis equal
+
+diff = aircraft_pos(:,1:2) - estimated_pos;
+mean_error = mean(sqrt(diff(:,1).^2 + diff(:,1).^2));
+disp(['Average error is ',num2str(mean_error),' meters'])
 
 toc
