@@ -1,4 +1,5 @@
 clc;clear;close all;
+addpath(genpath(cd))
 
 %% SIMULATION PARAMETERS
 tic
@@ -7,7 +8,7 @@ tic
 
 load("Straight_Level_Flight.mat")
 
-sample = 1;
+sample = 10;
 
 alt = -out.trimmedLogsout.find('xyz_m').Values.Data(1,3); % constant altitude of aircraft
 velocity = out.trimmedLogsout.find('Velocity').Values.Data(1); % m/s
@@ -102,10 +103,14 @@ u(1) = deg2rad(0); %rad
 % figure for seeing estimation process of particles step by step
 fig = figure(1);
 
+k = 1;
 %% Simulation of PF
 for i=1:step
     %i;
-    i
+    if mod(i,round(step/100)) == 0
+        disp(k)
+        k = k+1;
+    end
 
     % Plotting and all other things for visulization
     %real_pos(i,:) = aircraft_pos(1:2);
@@ -165,14 +170,29 @@ for i=1:step
 end
 
 %% Plotting Sim Results
-close(fig)
+%close(fig)
 
 % 3D Figure of DTED map,particles and estimation figure
 h1.visualizeDTED(ref_lla,boundary_right_upper_lla);
 hold on 
-particles_lla = ned2lla([particles_history(:,1) particles_history(:,2) -alt*ones(length(particles_history(:,1)),1)],[ref_lla 0],'flat');
-real_pos_lla = ned2lla([aircraft_pos(:,1) aircraft_pos(:,2) -alt*ones(length(aircraft_pos(:,1)),1)],[ref_lla 0],'flat');
-estimated_pos_lla = ned2lla([estimated_pos(:,1) estimated_pos(:,2) -alt*ones(length(estimated_pos(:,1)),1)],[ref_lla 0],'flat');
+
+nsample = round(length(aircraft_pos(:,1))/10);
+
+part_indis = 1:N;
+for i=1:9
+    part_indis = [part_indis  N*nsample*i+1:N*nsample*i+1+N];
+end
+%part_indis = [1:N, N*nsample+1:N*nsample:length(particles_history(:,1))];
+
+plot_particles_history = particles_history(part_indis,:);
+plot_aircraft_pos = aircraft_pos(1:nsample:end,:);
+plot_estimated_pos = estimated_pos(1:nsample:end,:);
+
+
+
+particles_lla = ned2lla([plot_particles_history(:,1) plot_particles_history(:,2) -alt*ones(length(plot_particles_history(:,1)),1)],[ref_lla 0],'flat');
+real_pos_lla = ned2lla([plot_aircraft_pos(:,1) plot_aircraft_pos(:,2) -alt*ones(length(plot_aircraft_pos(:,1)),1)],[ref_lla 0],'flat');
+estimated_pos_lla = ned2lla([plot_estimated_pos(:,1) plot_estimated_pos(:,2) -alt*ones(length(plot_estimated_pos(:,1)),1)],[ref_lla 0],'flat');
 
 p = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'y.', ...
           real_pos_lla(:,2),real_pos_lla(:,1),real_pos_lla(:,3),'r+'   , ...
@@ -190,9 +210,9 @@ set(gca,'BoxStyle','full','Box','on')
 
 % 2D Figure of particles and estimation figure
 figure(2);
-p = plot(particles_history(:,2),particles_history(:,1),'y.', ...
-                           aircraft_pos(:,2),aircraft_pos(:,1),'r+', ...
-                           estimated_pos(:,2),estimated_pos(:,1),'*b');
+p = plot(plot_particles_history(:,2),plot_particles_history(:,1),'y.', ...
+                           plot_aircraft_pos(:,2),plot_aircraft_pos(:,1),'r+', ...
+                           plot_estimated_pos(:,2),plot_estimated_pos(:,1),'*b');
 p(1).MarkerSize = 1;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
