@@ -2,7 +2,6 @@ clc;clear;close all;
 addpath(genpath(cd))
 
 %% SIMULATION PARAMETERS
-tic
 
 % aircraft states and inputs
 
@@ -33,7 +32,7 @@ radar_data = radar_data(:,:,sample+1:sample:end);
 %a = radar_data(:,:,1);
 
 % particles property
-N = 250; % number of particles
+N = 400; % number of particles
 range_part = 500; % initial particles range among aircraft
 x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
 y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
@@ -105,6 +104,7 @@ fig = figure(1);
 
 k = 1;
 %% Simulation of PF
+tic
 for i=1:step
     %i;
     if mod(i,round(step/100)) == 0
@@ -152,7 +152,7 @@ for i=1:step
 
     % move particles for Particle Filter algorithm and finding elevation
     % with DTED
-
+    tic
     if i ~= step
         % move particles for Particle Filter algorithm and finding elevation
         % with DTED
@@ -167,10 +167,11 @@ for i=1:step
         u(1) = u(1) + deg2rad(head_inc);
         %elev_particles_pc_history(1+N*(i-1):N*i,:) = PF.elev_particles_pc(:,:)
     end
+    toc
 end
-
+toc
 %% Plotting Sim Results
-%close(fig)
+close(fig)
 
 % 3D Figure of DTED map,particles and estimation figure
 h1.visualizeDTED(ref_lla,boundary_right_upper_lla);
@@ -178,16 +179,15 @@ hold on
 
 nsample = round(length(aircraft_pos(:,1))/10);
 
-part_indis = 1:N;
-for i=1:9
-    part_indis = [part_indis  N*nsample*i+1:N*nsample*i+1+N];
-end
-%part_indis = [1:N, N*nsample+1:N*nsample:length(particles_history(:,1))];
-
-plot_particles_history = particles_history(part_indis,:);
 plot_aircraft_pos = aircraft_pos(1:nsample:end,:);
 plot_estimated_pos = estimated_pos(1:nsample:end,:);
 
+part_indis = 1:N;
+for i=1:length(plot_estimated_pos(:,1))-1
+    part_indis = [part_indis  N*nsample*i+1:N*nsample*i+1+N];
+end
+
+plot_particles_history = particles_history(part_indis,:);
 
 
 particles_lla = ned2lla([plot_particles_history(:,1) plot_particles_history(:,2) -alt*ones(length(plot_particles_history(:,1)),1)],[ref_lla 0],'flat');
@@ -213,7 +213,7 @@ figure(2);
 p = plot(plot_particles_history(:,2),plot_particles_history(:,1),'y.', ...
                            plot_aircraft_pos(:,2),plot_aircraft_pos(:,1),'r+', ...
                            plot_estimated_pos(:,2),plot_estimated_pos(:,1),'*b');
-p(1).MarkerSize = 1;
+p(1).MarkerSize = 5;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
 legend('Particles','True Position','PF Estimation')
@@ -224,7 +224,6 @@ grid on
 axis equal
 
 diff = aircraft_pos(:,1:2) - estimated_pos;
-mean_error = mean(sqrt(diff(:,1).^2 + diff(:,1).^2));
+mean_error = mean(sqrt(diff(:,1).^2 + diff(:,2).^2));
 disp(['Average error is ',num2str(mean_error),' meters'])
 
-toc
