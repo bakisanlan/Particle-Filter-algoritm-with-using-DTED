@@ -152,7 +152,7 @@ for i=1:step
 
     % move particles for Particle Filter algorithm and finding elevation
     % with DTED
-    tic
+    %tic
     if i ~= step
         % move particles for Particle Filter algorithm and finding elevation
         % with DTED
@@ -167,7 +167,7 @@ for i=1:step
         u(1) = u(1) + deg2rad(head_inc);
         %elev_particles_pc_history(1+N*(i-1):N*i,:) = PF.elev_particles_pc(:,:)
     end
-    toc
+    %toc
 end
 toc
 %% Plotting Sim Results
