@@ -1,0 +1,60 @@
+%%%%%%%%%%%
+sample 427,10
+N = 250
+rangepart 250
+
+err 14.4
+time 35 s
+
+
+%%%%%%%%%%%
+sample 427,10
+N = 125
+rangepart 250
+
+err 14
+time 22s
+
+
+%%%%%%%%%%%
+sample 427,10
+N = 500
+rangepart 250
+
+err 14
+time 60s
+
+%%%%%%%%%%%
+sample 427,10
+N = 10
+rangepart 250
+
+err 150
+time 10s
+
+
+%%%%%%%%%%%
+sample 214,10
+N = 100
+rangepart 500
+
+err 10
+time 10s
+
+%%%%%%%%%%%
+sample 214,10
+N = 5000
+rangepart 500
+
+err 10
+time 264s
+
+
+
+N 100, ts 0.025184
+N 200, ts 0.052119
+N 400, ts 0.102153
+
+
+
+
