@@ -5,19 +5,24 @@ addpath(genpath(cd))
 
 % aircraft states and inputs
 
-load("Straight_Level_Flight.mat")
+load("trimmedCircularTrajData.mat")
 
-sample = 100;
+sample = 25;
+init_t = 3;
+ts = 207/0.01;
+alt = -out.logsout.find('xyz_m').Values.Data(init_t,3); % constant altitude of aircraft
+V_N = out.logsout.find('NorthDot').Values.Data(init_t:ts); % m/s
+V_N = V_N(1:sample:end,:);
+V_E = out.logsout.find('EastDot').Values.Data(init_t:ts); % m/s
+V_E = V_E(1:sample:end,:);
 
-alt = -out.trimmedLogsout.find('xyz_m').Values.Data(1,3); % constant altitude of aircraft
-velocity = out.trimmedLogsout.find('Velocity').Values.Data(1); % m/s
-heading = out.trimmedLogsout.find('Psi_deg').Values.Data(1); %rad      
-head_inc = 0;
-u = [heading ; velocity]; % input vector
+%heading = out.trimmedLogsout.find('Psi_deg').Values.Data(1); %rad      
+%head_inc = 0;
+u = [V_N  V_E]; % input vector
 emapf = 2000;
 gps_lost_pos = [emapf ; emapf]; % x and y position when GPS lost
 %aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
-aircraft_pos = out.trimmedLogsout.find('xyz_m').Values.Data;  % aircraft init pos
+aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:ts,:);  % aircraft init pos
 aircraft_pos(:,3) = -aircraft_pos(:,3);   % converting up z to down z
 aircraft_pos = aircraft_pos(1:sample:end,:);
 
@@ -26,16 +31,16 @@ aircraft_pos = aircraft_pos(1:sample:end,:);
 % probability from pdf so resampling will not working very well
 alt_std = 3;  % altimeter sensor std error valu
 % IMU error provide exploration of particles rather than exploit roughly 
-imu_std = [deg2rad(1) 10];  % imu sensor u1 = heading,  u2 = velocity
-radar_data = out.trimmedLogsout.find('allRadarPoint_Body_m').Values.Data;
+imu_std = [5 5];  % imu sensor u1 = heading,  u2 = velocity
+radar_data = out.logsout.find('allRadarPoint_Body_m').Values.Data(:,:,init_t:ts);
 radar_data = radar_data(:,:,sample+1:sample:end);
 %a = radar_data(:,:,1);
 
 % particles property
-N = 5; % number of particles
-range_part = 500; % initial particles range among aircraft
-x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
-y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
+N = 400; % number of particles
+range_part = 2000; % initial particles range among aircraft
+% x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
+% y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
 hdg_range = [0 2*pi];
 
 % simulation parameters
@@ -45,7 +50,7 @@ hdg_range = [0 2*pi];
 %step = tf/dt + 1;
 step = length(aircraft_pos(:,1));
 %dt = tf/(step-1);
-dt = norm([aircraft_pos(1,1)-aircraft_pos(2,1), aircraft_pos(1,2)-aircraft_pos(2,2)])/velocity;
+dt = norm([aircraft_pos(1,1)-aircraft_pos(2,1), aircraft_pos(1,2)-aircraft_pos(2,2)])/sqrt(V_N(1)^2 + V_E(2)^2);
 
 % creating historical array for plotting purposes
 %real_pos = aircraft_pos;
@@ -53,8 +58,6 @@ estimated_pos = zeros(step,2);
 particles_history = zeros(step*N,2);
 elev_particles_pc_history = zeros(step*N,81);
 
-% 
-PF = ParticleFilter_multi(N,x_range,y_range,hdg_range,alt_std,imu_std,dt,alt);
 
 % Finding left lower and right upper corner of DTED maps for interpolation
 % and plotting
@@ -68,36 +71,49 @@ PF = ParticleFilter_multi(N,x_range,y_range,hdg_range,alt_std,imu_std,dt,alt);
 %aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
 
 % finding baundary of DTED map based on aircraft motion
+%ref_lla = [41.100716368985353  29.000747036259000];  % itu arc west 2000
 ref_lla = [41.10071636898535, 29.024554581047795];  % itu arc
+
 x_max_vehic = max(aircraft_pos(:,1));
 y_max_vehic = max(aircraft_pos(:,2));
 x_min_vehic = min(aircraft_pos(:,1));
 y_min_vehic = min(aircraft_pos(:,2));
 %emapf = 2000;                 %expanding map in metrees to N and E direction for visulization
-boundary_right_upper_lla = ned2lla([x_max_vehic+emapf y_max_vehic+emapf 0], [ref_lla 0],'flat');
-boundary_left_lower_lla  = ned2lla([x_min_vehic-emapf y_min_vehic-emapf 0], [ref_lla 0],'flat');
+boundary_right_upper_lla = ned2lla([x_max_vehic+emapf y_max_vehic+emapf alt], [ref_lla alt],'flat');
+boundary_left_lower_lla  = ned2lla([x_min_vehic-emapf y_min_vehic-emapf alt], [ref_lla alt],'flat');
 
-% creating DTED value for interpolation step
-h1 = DigitalElevationModel;
-ndownsample = 1;
+aircraft_pos_lla = ned2lla(aircraft_pos,[ref_lla alt],"flat");
+
+aircraft_pos_rel_leftlow = lla2ned([aircraft_pos_lla(:,1:2) -ones(length(aircraft_pos_lla(:,1)),1)*alt],boundary_left_lower_lla,"flat");
+
+
 ef = 1;  % expanding DTED area with a factor for preventing NaN values
 %dted = h1.getMetricGridElevationMap(boundary_left_lower_lla-ef, boundary_right_upper_lla+ef, ndownsample);
 
 % translation of aircraft pos w.r.t baundary left point distance
-correction_translation_loc = lla2ned([ref_lla 0] ,[boundary_left_lower_lla(1:2) 0],"flat");
-aircraft_pos(:,1:2) = aircraft_pos(:,1:2) + correction_translation_loc(1:2);
+%correction_translation_loc = lla2ned([ref_lla 0] ,[boundary_left_lower_lla(1:2) 0],"flat");
+%aircraft_pos(:,1:2) = aircraft_pos(:,1:2) + correction_translation_loc(1:2);
 
-boundary_right_upper_lla = ned2lla(correction_translation_loc , boundary_right_upper_lla,'flat');
+%boundary_right_upper_lla = ned2lla(correction_translation_loc , boundary_right_upper_lla,'flat');
 
+% creating DTED value for interpolation step
+h1 = DigitalElevationModel;
+ndownsample = 1;
 dted = h1.getMetricGridElevationMap(boundary_left_lower_lla, boundary_right_upper_lla, ndownsample);
 
 %h1.visualizeDTED(boundary_left_lower_lla,boundary_right_upper_lla)
+
+x_range = [aircraft_pos_rel_leftlow(1,1) - 0.5*range_part ; aircraft_pos_rel_leftlow(1,1) + 0.5*range_part];
+y_range = [aircraft_pos_rel_leftlow(1,2) - 0.5*range_part ; aircraft_pos_rel_leftlow(1,2) + 0.5*range_part];
+
+% Initiliazing PF Class
+PF = ParticleFilter_circ(N,x_range,y_range,hdg_range,alt_std,imu_std,dt,alt);
 
 % initilizating estimation values
 [meann, var] = PF.estimate();
 
 % resetting heading input
-u(1) = deg2rad(0); %rad
+%u(1) = deg2rad(0); %rad
 
 % figure for seeing estimation process of particles step by step
 fig = figure(1);
@@ -118,24 +134,24 @@ for i=1:step
     particles_history(1+N*(i-1):N*i,:) = PF.particles(:,1:2);
 
     %calculating error between estimated and real pos
-    estim_error = norm(meann - aircraft_pos(i,1:2));
+    estim_error = norm(meann - aircraft_pos_rel_leftlow(i,1:2));
 
     % plot of estimation process of particles step by step
     p = plot(PF.particles(:,2),PF.particles(:,1),'y.', ...
-             aircraft_pos(i,2),aircraft_pos(i,1),'r+', ...
+             aircraft_pos_rel_leftlow(i,2),aircraft_pos_rel_leftlow(i,1),'r+', ...
              meann(2),meann(1),'*b');
     p(1).MarkerSize = 1;
     p(2).MarkerSize = 5;
     p(3).MarkerSize = 5;
     legend('Particles','True Position','PF Estimation')
-    xlim([aircraft_pos(i,2)-3000 aircraft_pos(i,2)+3000]);
-    ylim([aircraft_pos(i,1)-3000 aircraft_pos(i,1)+3000]);
+    xlim([aircraft_pos_rel_leftlow(i,2)-3000 aircraft_pos_rel_leftlow(i,2)+3000]);
+    ylim([aircraft_pos_rel_leftlow(i,1)-3000 aircraft_pos_rel_leftlow(i,1)+3000]);
     xlabel('East(m)')
     ylabel('North(m)')
     title('One Step Particles Aircraft Motion and Particles')
     grid on
     % adding text that shows error
-    text(aircraft_pos(i,2)-2500,aircraft_pos(i,1)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
+    text(aircraft_pos_rel_leftlow(i,2)-2500,aircraft_pos_rel_leftlow(i,1)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
 
     % pause simulation for seeing clearly step by step
     %pause(0.1);
@@ -156,7 +172,7 @@ for i=1:step
     if i ~= step
         % move particles for Particle Filter algorithm and finding elevation
         % with DTED
-        PF.particle_step(u);
+        PF.particle_step(u(i,:));
         % updating weights of particles
         PF.update_weights(radar_data(:,:,i),dted)
     
@@ -164,35 +180,35 @@ for i=1:step
         [meann, var] = PF.estimate();
     
         % change input for seeing different case
-        u(1) = u(1) + deg2rad(head_inc);
+        %u(1) = u(1) + deg2rad(head_inc);
         %elev_particles_pc_history(1+N*(i-1):N*i,:) = PF.elev_particles_pc(:,:)
     end
     %toc
 end
 toc
 %% Plotting Sim Results
-close(fig)
+%close(fig)
 
 % 3D Figure of DTED map,particles and estimation figure
-h1.visualizeDTED(ref_lla,boundary_right_upper_lla);
+h1.visualizeDTED(boundary_left_lower_lla,boundary_right_upper_lla);
 hold on 
 
-nsample = round(length(aircraft_pos(:,1))/10);
+nsample = round(length(aircraft_pos_rel_leftlow(:,1))/320);
 
-plot_aircraft_pos = aircraft_pos(1:nsample:end,:);
+plot_aircraft_pos = aircraft_pos_rel_leftlow(1:nsample:end,:);
 plot_estimated_pos = estimated_pos(1:nsample:end,:);
 
 part_indis = 1:N;
 for i=1:length(plot_estimated_pos(:,1))-1
-    part_indis = [part_indis  N*nsample*i+1:N*nsample*i+1+N];
+    part_indis = [part_indis  N*nsample*i+1:N*nsample*i+N];
 end
 
 plot_particles_history = particles_history(part_indis,:);
 
 
-particles_lla = ned2lla([plot_particles_history(:,1) plot_particles_history(:,2) -alt*ones(length(plot_particles_history(:,1)),1)],[ref_lla 0],'flat');
-real_pos_lla = ned2lla([plot_aircraft_pos(:,1) plot_aircraft_pos(:,2) -alt*ones(length(plot_aircraft_pos(:,1)),1)],[ref_lla 0],'flat');
-estimated_pos_lla = ned2lla([plot_estimated_pos(:,1) plot_estimated_pos(:,2) -alt*ones(length(plot_estimated_pos(:,1)),1)],[ref_lla 0],'flat');
+particles_lla = ned2lla([plot_particles_history(:,1) plot_particles_history(:,2) -alt*ones(length(plot_particles_history(:,1)),1)],boundary_left_lower_lla,'flat');
+real_pos_lla = ned2lla([plot_aircraft_pos(:,1) plot_aircraft_pos(:,2) -alt*ones(length(plot_aircraft_pos(:,1)),1)],boundary_left_lower_lla,'flat');
+estimated_pos_lla = ned2lla([plot_estimated_pos(:,1) plot_estimated_pos(:,2) -alt*ones(length(plot_estimated_pos(:,1)),1)],boundary_left_lower_lla,'flat');
 
 p = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'y.', ...
           real_pos_lla(:,2),real_pos_lla(:,1),real_pos_lla(:,3),'r+'   , ...
@@ -223,7 +239,7 @@ title('Particles in 2D Map','FontSize',20)
 grid on
 axis equal
 
-diff = aircraft_pos(:,1:2) - estimated_pos;
+diff = aircraft_pos_rel_leftlow(:,1:2) - estimated_pos;
 mean_error = mean(sqrt(diff(:,1).^2 + diff(:,2).^2));
 disp(['Average error is ',num2str(mean_error),' meters'])
 

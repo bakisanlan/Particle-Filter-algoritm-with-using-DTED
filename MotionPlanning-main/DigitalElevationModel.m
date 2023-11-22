@@ -20,12 +20,16 @@ classdef DigitalElevationModel < handle
 
             % Load elevation data from file
             obj.mapWidth = 1000;
-            obj.loadData("n41_e029_1arc_v3.dt2");
+            %obj.loadData("n41_e029_1arc_v3.dt2");
+            obj.loadData('dted_n4142_e2830.mat');
         end
 
         function loadData(obj,filename)
             %loadData Load data from file
-            [obj.A,obj.R] = readgeoraster(filename,"OutputType","double");
+            %[obj.A,obj.R] = readgeoraster(filename,"OutputType","double");
+            load(filename)
+            obj.A = dted.mapArray;
+            obj.R = dted.mapInfo;
             obj.A = flip(obj.A);
             obj.latitudes   = transpose(...
                 obj.R.LatitudeLimits(1):obj.R.SampleSpacingInLatitude:...
