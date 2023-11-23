@@ -7,7 +7,7 @@ addpath(genpath(cd))
 
 load("trimmedCircularTrajData.mat")
 
-sample = 25;
+sample = 100;
 init_t = 3;
 ts = 207/0.01;
 alt = -out.logsout.find('xyz_m').Values.Data(init_t,3); % constant altitude of aircraft
@@ -193,7 +193,7 @@ toc
 h1.visualizeDTED(boundary_left_lower_lla,boundary_right_upper_lla);
 hold on 
 
-nsample = round(length(aircraft_pos_rel_leftlow(:,1))/320);
+nsample = round(length(aircraft_pos_rel_leftlow(:,1))/10);
 
 plot_aircraft_pos = aircraft_pos_rel_leftlow(1:nsample:end,:);
 plot_estimated_pos = estimated_pos(1:nsample:end,:);

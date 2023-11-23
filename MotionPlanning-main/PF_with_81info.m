@@ -32,7 +32,7 @@ radar_data = radar_data(:,:,sample+1:sample:end);
 %a = radar_data(:,:,1);
 
 % particles property
-N = 5; % number of particles
+N = 200; % number of particles
 range_part = 500; % initial particles range among aircraft
 x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
 y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
