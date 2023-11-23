@@ -3,53 +3,53 @@ addpath(genpath(cd))
 
 %% SIMULATION PARAMETERS
 
-% aircraft states and inputs
+% Loading Unity circular traj time series data as 'out'
+% Unity out has dt = 0.01 and t_final = 250s;
+load("trimmedCircularTrajData.mat") 
 
-load("trimmedCircularTrajData.mat")
+% Unity out sampling parameters
+sample_space = 100;      % number of sample space, value 1 is same with unity data
+init_t = 3;              % because of first 2 sample is broken from unity we take samples after 2
+unity_dt = 0.01;
+tf = 200/unity_dt;       % we choose to take samples until 200 s.
 
-sample = 100;
-init_t = 3;
-ts = 207/0.01;
-alt = -out.logsout.find('xyz_m').Values.Data(init_t,3); % constant altitude of aircraft
-V_N = out.logsout.find('NorthDot').Values.Data(init_t:ts); % m/s
-V_N = V_N(1:sample:end,:);
-V_E = out.logsout.find('EastDot').Values.Data(init_t:ts); % m/s
-V_E = V_E(1:sample:end,:);
-
-%heading = out.trimmedLogsout.find('Psi_deg').Values.Data(1); %rad      
-%head_inc = 0;
-u = [V_N  V_E]; % input vector
-emapf = 2000;
-gps_lost_pos = [emapf ; emapf]; % x and y position when GPS lost
-%aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
-aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:ts,:);  % aircraft init pos
+% Real aircraft States and Inputs
+aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:tf,:);  % real aircraft posisiton(Unity)
 aircraft_pos(:,3) = -aircraft_pos(:,3);   % converting up z to down z
-aircraft_pos = aircraft_pos(1:sample:end,:);
+aircraft_pos = aircraft_pos(1:sample_space:end,:);
+alt = -out.logsout.find('xyz_m').Values.Data(init_t,3);     % constant altitude of aircraft
 
-% sensor property
+V_N = out.logsout.find('NorthDot').Values.Data(init_t:tf);  % velocity in North direction
+V_N = V_N(1:sample_space:end,:);
+V_E = out.logsout.find('EastDot').Values.Data(init_t:tf);   % velocity in East direction
+V_E = V_E(1:sample_space:end,:);
+% input vector consist of V_N and V_E, those 2 array will be used for
+% particles movement through particles kinematic model
+u = [V_N  V_E]; % input vector
+
+% Sensor Property
 % 0 or close to 0 altitude error cause to particles gets very very lower
-% probability from pdf so resampling will not working very well
-alt_std = 3;  % altimeter sensor std error valu
-% IMU error provide exploration of particles rather than exploit roughly 
-imu_std = [5 5];  % imu sensor u1 = heading,  u2 = velocity
-radar_data = out.logsout.find('allRadarPoint_Body_m').Values.Data(:,:,init_t:ts);
-radar_data = radar_data(:,:,sample+1:sample:end);
-%a = radar_data(:,:,1);
+% probability value from pdf so resampling will not working very well
+alt_std = 3;  % altimeter sensor std error value
 
-% particles property
-N = 400; % number of particles
-range_part = 2000; % initial particles range among aircraft
-% x_range = [gps_lost_pos(1) - 0.5*range_part ; gps_lost_pos(1) + 0.5*range_part];
-% y_range = [gps_lost_pos(2) - 0.5*range_part ; gps_lost_pos(2) + 0.5*range_part];
-hdg_range = [0 2*pi];
+% IMU error provide exploration of particles rather than exploit roughly 
+imu_std = [5 5];  % imu sensor imu_std(1) = V_N std,  imu_std(2) = V_E std
+
+% Radar Data
+% Radar Data is a 3D array that size is 81x3xSimArray. Unity radar model is
+% raycasting throught DTED model with 9x9 square radar beam. Radar Data
+% store each 81 points NED position relative to aircraft that touch to DTED surface.
+% Those Radar Data will be used for measuring particles DTED altitude when
+% they spread in sampling space through interpolation from DTED model.
+radar_data = out.logsout.find('allRadarPoint_Body_m').Values.Data(:,:,init_t:tf);
+radar_data = radar_data(:,:,sample_space+1:sample_space:end);
+
+% Particles Property
+N = 400; % Number of particles
+range_part = 2000; % uniformly distribute particles around aircraft with that range
 
 % simulation parameters
-%dt = 0.01;
-%dt = 1;
-%tf = 50;
-%step = tf/dt + 1;
 step = length(aircraft_pos(:,1));
-%dt = tf/(step-1);
 dt = norm([aircraft_pos(1,1)-aircraft_pos(2,1), aircraft_pos(1,2)-aircraft_pos(2,2)])/sqrt(V_N(1)^2 + V_E(2)^2);
 
 % creating historical array for plotting purposes
@@ -59,17 +59,6 @@ particles_history = zeros(step*N,2);
 elev_particles_pc_history = zeros(step*N,81);
 
 
-% Finding left lower and right upper corner of DTED maps for interpolation
-% and plotting
-% for j= 1:step
-%     real_pos(j,:) = aircraft_pos(1:2);
-%     aircraft_pos = PF.aircraft_step(aircraft_pos,u);
-%     u(1) = u(1) + deg2rad(head_inc);
-% end
-
-% reset aircraft_pos values to initial values after collecting real_pos
-%aircraft_pos = [gps_lost_pos ; heading];  % aircraft init pos
-
 % finding baundary of DTED map based on aircraft motion
 %ref_lla = [41.100716368985353  29.000747036259000];  % itu arc west 2000
 ref_lla = [41.10071636898535, 29.024554581047795];  % itu arc
@@ -78,7 +67,7 @@ x_max_vehic = max(aircraft_pos(:,1));
 y_max_vehic = max(aircraft_pos(:,2));
 x_min_vehic = min(aircraft_pos(:,1));
 y_min_vehic = min(aircraft_pos(:,2));
-%emapf = 2000;                 %expanding map in metrees to N and E direction for visulization
+emapf = 2000;                 %expanding map in metrees to N and E direction for visulization
 boundary_right_upper_lla = ned2lla([x_max_vehic+emapf y_max_vehic+emapf alt], [ref_lla alt],'flat');
 boundary_left_lower_lla  = ned2lla([x_min_vehic-emapf y_min_vehic-emapf alt], [ref_lla alt],'flat');
 
@@ -88,13 +77,6 @@ aircraft_pos_rel_leftlow = lla2ned([aircraft_pos_lla(:,1:2) -ones(length(aircraf
 
 
 ef = 1;  % expanding DTED area with a factor for preventing NaN values
-%dted = h1.getMetricGridElevationMap(boundary_left_lower_lla-ef, boundary_right_upper_lla+ef, ndownsample);
-
-% translation of aircraft pos w.r.t baundary left point distance
-%correction_translation_loc = lla2ned([ref_lla 0] ,[boundary_left_lower_lla(1:2) 0],"flat");
-%aircraft_pos(:,1:2) = aircraft_pos(:,1:2) + correction_translation_loc(1:2);
-
-%boundary_right_upper_lla = ned2lla(correction_translation_loc , boundary_right_upper_lla,'flat');
 
 % creating DTED value for interpolation step
 h1 = DigitalElevationModel;
