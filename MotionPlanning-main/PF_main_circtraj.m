@@ -17,7 +17,7 @@ load("trimmedCircularTrajData.mat")
 sample_space = 100;      % number of sample space, value 1 is same with unity data
 init_t = 3;              % because of first 2 sample is broken from unity we take samples after 2
 unity_dt = 0.01;
-tf = 200/unity_dt;       % we choose to take samples until 200 s.
+tf = 20/unity_dt;       % we choose to take samples until 200 s.
 
 %% Take Real aircraft States and Inputs
 aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:tf,:);  % real aircraft posisiton(Unity)
@@ -170,7 +170,9 @@ close(fig)
 h1.visualizeDTED(boundary_left_lower_lla,boundary_right_upper_lla);
 hold on 
 
-nsample = round(length(aircraft_pos_rel_leftlow(:,1))/10);
+nsample = round(length(aircraft_pos_rel_leftlow(:,1))/20);
+nsample = 2;
+
 
 plot_aircraft_pos = aircraft_pos_rel_leftlow(1:nsample:end,:);
 plot_estimated_pos = estimated_pos(1:nsample:end,:);
@@ -189,7 +191,7 @@ estimated_pos_lla = ned2lla([plot_estimated_pos(:,1) plot_estimated_pos(:,2) -al
 p = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'y.', ...
           real_pos_lla(:,2),real_pos_lla(:,1),real_pos_lla(:,3),'r+'   , ...
           estimated_pos_lla(:,2),estimated_pos_lla(:,1),estimated_pos_lla(:,3),'*b');
-p(1).MarkerSize = 1;
+p(1).MarkerSize = 5;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
 legend({'DTED Mesh','Particles','True Position','PF Estimation'},Location="best")
@@ -200,7 +202,7 @@ cur_aspect = daspect;
 daspect([1 1 10000]);
 set(gca,'BoxStyle','full','Box','on')
 
-%% 2D FIGURE OF PARTICLES AND ESTIMATION FIGURE
+% 2D FIGURE OF PARTICLES AND ESTIMATION FIGURE
 figure(2);
 p = plot(plot_particles_history(:,2),plot_particles_history(:,1),'y.', ...
                            plot_aircraft_pos(:,2),plot_aircraft_pos(:,1),'r+', ...
