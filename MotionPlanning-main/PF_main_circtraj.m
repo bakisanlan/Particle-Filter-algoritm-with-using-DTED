@@ -17,7 +17,7 @@ load("trimmedCircularTrajData.mat")
 sample_space = 100;      % number of sample space, value 1 is same with unity data
 init_t = 3;              % because of first 2 sample is broken from unity we take samples after 2
 unity_dt = 0.01;
-tf = 20/unity_dt;       % we choose to take samples until 200 s.
+tf = 50/unity_dt;       % we choose to take samples until 200 s.
 
 %% Take Real aircraft States and Inputs
 aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:tf,:);  % real aircraft posisiton(Unity)
@@ -78,8 +78,9 @@ dted = h1.getMetricGridElevationMap(boundary_left_lower_lla, boundary_right_uppe
 %% Particles Property
 N = 400; % Number of particles
 range_part = 2000; % uniformly distribute particles around aircraft with that range
-x_range = [aircraft_pos_rel_leftlow(1,1) - 0.5*range_part ; aircraft_pos_rel_leftlow(1,1) + 0.5*range_part];
-y_range = [aircraft_pos_rel_leftlow(1,2) - 0.5*range_part ; aircraft_pos_rel_leftlow(1,2) + 0.5*range_part];
+x_range = [aircraft_pos_rel_leftlow(1,1) - 0.5*range_part  aircraft_pos_rel_leftlow(1,1) + 0.5*range_part];
+y_range = [aircraft_pos_rel_leftlow(1,2) - 0.5*range_part  aircraft_pos_rel_leftlow(1,2) + 0.5*range_part];
+exp_rate = 0;  % exploration rate of PF 
 
 %% PF Algorithm Parameters
 step = length(aircraft_pos(:,1));  % 
@@ -87,10 +88,11 @@ step = length(aircraft_pos(:,1));  %
 dt = norm([aircraft_pos(1,1)-aircraft_pos(2,1), aircraft_pos(1,2)-aircraft_pos(2,2)])/sqrt(V_N(1)^2 + V_E(2)^2);
 
 %% Initiliazing PF Class
-PF = ParticleFilter_circ(N,x_range,y_range,alt_std,imu_std,dt,alt);
+PF = ParticleFilter_circ(N,x_range,y_range,exp_rate,alt_std,imu_std,dt,alt);
 
 %% initilizating estimation values
-[meann, var] = PF.estimate();
+PF.estimate();
+[meann, var] = deal(PF.meann , PF.var);
 
 %% Creating historical array for plotting purposes
 estimated_pos = zeros(step,2);
@@ -106,7 +108,7 @@ tic
 for i=1:step
 
     % For demonstration of PF process by percent
-    if mod(i,round(step/100)) == 0
+    if mod(i,step/100) == 0
         fprintf('PF algorithm %%%4.1f done\n',k)
         k = min(k+1,100);
     end
@@ -156,7 +158,8 @@ for i=1:step
         PF.update_weights(radar_data(:,:,i),dted)
     
         % Take mean and var variable for estimation metrics
-        [meann, var] = PF.estimate();
+        PF.estimate();
+        [meann, var] = deal(PF.meann , PF.var);
     end
     %toc
 end

@@ -11,10 +11,13 @@ classdef ParticleFilter_circ < handle
         weights
         elev_particles_pc
         alt
+        meann
+        var
+        exp_rate
     end
 %% PF Functions
     methods
-        function self = ParticleFilter_circ(N,x_range,y_range,alt_std,imu_std,dt,alt)
+        function self = ParticleFilter_circ(N,x_range,y_range,exp_rate,alt_std,imu_std,dt,alt)
             % Defining properties
             self.N = N;
             self.x_range = x_range;
@@ -24,9 +27,11 @@ classdef ParticleFilter_circ < handle
             self.dt = dt;
             self.weights = ones(self.N,1)/self.N;
             self.alt = alt;
+            self.exp_rate = exp_rate;
 
             % Create uniformly distributed particles around aircraft with the range
-            self.create_uniform_particles;
+            self.particles = self.create_uniform_particles(self.N,[self.x_range ; self.y_range]);
+
         end
         
         function particle_step(self, u)
@@ -80,12 +85,12 @@ classdef ParticleFilter_circ < handle
             end
         end
         
-        function [mean, var] = estimate(self)
+        function estimate(self)
             % Taking weighted mean and var of particles for estimation 
             % returns mean and variance of the weighted particles
             pos = self.particles(:, 1:2);
-            mean = sum(pos .* self.weights) / sum(self.weights);
-            var  = sum((pos - mean).^2 .* self.weights) / sum(self.weights);
+            self.meann = sum(pos .* self.weights) / sum(self.weights);
+            self.var  = sum((pos - self.meann).^2 .* self.weights) / sum(self.weights);
         end
     
     end
@@ -93,15 +98,15 @@ classdef ParticleFilter_circ < handle
 %% Functions that is used in Class as subfunctions
     methods
 
-        function create_uniform_particles(self)
+        function particles = create_uniform_particles(self,n_partc,range_partc)
             % create particles uniform distrubition near to the guess of aircraft
             % gps lost position
 
             % first column represent North pos. of particles
             % second column represent East pos. of particles
-            self.particles = zeros(self.N,2);
-            self.particles(:, 1) = unifrnd(self.x_range(1), self.x_range(2), [self.N 1]);
-            self.particles(:, 2) = unifrnd(self.y_range(1), self.y_range(2), [self.N 1]);
+            particles = zeros(n_partc,2);
+            particles(:, 1) = unifrnd(range_partc(1,1), range_partc(1,2), [n_partc 1]);
+            particles(:, 2) = unifrnd(range_partc(2,1), range_partc(2,2), [n_partc 1]);
         end
 
         function find_elev_particles_pc(self,radar_data,dted)
@@ -156,7 +161,50 @@ classdef ParticleFilter_circ < handle
 
         function resample(self,indexes)
             % Resampling from indexes that is produces by sampling methods
-            self.particles = self.particles(indexes,:);
+            
+            % unique_idx = unique(indexes);
+            % n_dead_particles = self.N - length(unique_idx);
+            % 
+            % range_part = 2000;
+            % %n_dead_particles
+            % x_range_rand_partc =  [self.meann(1) - 0.5*range_part ...
+            %                       self.meann(1) + 0.5*range_part];
+            % 
+            % y_range_rand_partc =  [self.meann(2) - 0.5*range_part ...
+            %                       self.meann(2) + 0.5*range_part];
+            % 
+            % range_rand_partc = [x_range_rand_partc ; y_range_rand_partc];
+            % rand_partc = self.create_uniform_particles(n_dead_particles,range_rand_partc);
+            % 
+            % self.particles = self.particles(unique_idx,:);
+            % self.particles = [self.particles ; rand_partc];
+
+            % Exploration phase
+            % When resampling is activated, new samples are chosed by indexed
+            % array that is produced by resampling method with some
+            % 1-exploration rate. And remaining particles are created
+            % uniform randomly in range of last mean value with exploration rate. 
+            if self.exp_rate ~= 0
+
+                n_rand_partc = round(self.N*self.exp_rate);
+                sample_indx = randsample(indexes, self.N - n_rand_partc);
+    
+                range_rand_part = 0.5*(-self.x_range(1) + self.x_range(2));
+    
+                x_range_rand_partc =  [self.meann(1) - 0.5*range_rand_part ...
+                                      self.meann(1) + 0.5*range_rand_part];
+    
+                y_range_rand_partc =  [self.meann(2) - 0.5*range_rand_part ...
+                                      self.meann(2) + 0.5*range_rand_part];
+    
+                range_rand_partc = [x_range_rand_partc ; y_range_rand_partc];
+                rand_partc = self.create_uniform_particles(n_rand_partc,range_rand_partc);
+    
+                self.particles = [self.particles(sample_indx,:) ; rand_partc];
+            else 
+                self.particles = self.particles(indexes,:);
+            end
+            
             self.weights = ones(length(self.particles),1)/length(self.particles);
         end
 
