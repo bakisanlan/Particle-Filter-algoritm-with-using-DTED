@@ -18,8 +18,8 @@ dted = {X , Y, h};
 %% Particles Property
 N = 400; % Number of particles
 range_part = 2000; % uniformly distribute particles around aircraft with that range
-x_range = [aircraft_init_pos(1,1) - 0.5*range_part ; aircraft_init_pos(1,1) + 0.5*range_part];
-y_range = [aircraft_init_pos(1,2) - 0.5*range_part ; aircraft_init_pos(1,2) + 0.5*range_part];
+x_range = [aircraft_init_pos(1) - 0.5*range_part ; aircraft_init_pos(1) + 0.5*range_part];
+y_range = [aircraft_init_pos(2) - 0.5*range_part ; aircraft_init_pos(2) + 0.5*range_part];
 exp_rate = 0;
 
 %% PF Algorithm Parameters

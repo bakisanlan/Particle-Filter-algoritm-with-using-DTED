@@ -2,7 +2,9 @@ clc;clear;close all;
 addpath(genpath(cd))
 
 %% SIMULATION PARAMETERS
-
+%rng(40,"twister")
+% load("s.mat")
+% rng(s);
 %% Loading Unity circular traj time series data as 'out'
 % Unity out has dt = 0.01 and t_final = 250s;
 load("trimmedCircularTrajData.mat") 
@@ -14,10 +16,10 @@ load("trimmedCircularTrajData.mat")
 % inputs that moves to particles are also choosen according to sample_space,
 % so integration time step also reduce that cause to translation wrongly of
 % particle w.r.t real aircraft motion.
-sample_space = 100;      % number of sample space, value 1 is same with unity data
+sample_space = 1;      % number of sample space, value 1 is same with unity data
 init_t = 3;              % because of first 2 sample is broken from unity we take samples after 2
 unity_dt = 0.01;
-tf = 50/unity_dt;       % we choose to take samples until 200 s.
+tf = 10/unity_dt;       % we choose to take samples until 200 s.
 
 %% Take Real aircraft States and Inputs
 aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:tf,:);  % real aircraft posisiton(Unity)
@@ -37,7 +39,7 @@ u = [V_N  V_E]; % input vector
 %% Sensor Property
 % 0 or close to 0 altitude error cause to particles gets very very lower
 % probability value from pdf so resampling will not working very well
-alt_std = 3;  % altimeter sensor std error value
+alt_std = 10;  % altimeter sensor std error value
 % IMU error provide exploration of particles rather than exploit roughly 
 imu_std = [5 5];  % imu sensor imu_std(1) = V_N std,  imu_std(2) = V_E std
 
@@ -80,7 +82,7 @@ N = 400; % Number of particles
 range_part = 2000; % uniformly distribute particles around aircraft with that range
 x_range = [aircraft_pos_rel_leftlow(1,1) - 0.5*range_part  aircraft_pos_rel_leftlow(1,1) + 0.5*range_part];
 y_range = [aircraft_pos_rel_leftlow(1,2) - 0.5*range_part  aircraft_pos_rel_leftlow(1,2) + 0.5*range_part];
-exp_rate = 0;  % exploration rate of PF 
+exp_rate = 0.005;  % exploration rate of PF 
 
 %% PF Algorithm Parameters
 step = length(aircraft_pos(:,1));  % 
@@ -88,7 +90,7 @@ step = length(aircraft_pos(:,1));  %
 dt = norm([aircraft_pos(1,1)-aircraft_pos(2,1), aircraft_pos(1,2)-aircraft_pos(2,2)])/sqrt(V_N(1)^2 + V_E(2)^2);
 
 %% Initiliazing PF Class
-PF = ParticleFilter_circ(N,x_range,y_range,exp_rate,alt_std,imu_std,dt,alt);
+PF = ParticleFilter_opt(N,x_range,y_range,exp_rate,alt_std,imu_std,dt,alt);
 
 %% initilizating estimation values
 PF.estimate();
@@ -101,14 +103,13 @@ elev_particles_pc_history = zeros(step*N,81);
 
 %% Figure for seeing estimation process of particles step by step 
 fig = figure(1);
-
 k = 1;  
 %% Simulation of Particle Filter
 tic
 for i=1:step
 
     % For demonstration of PF process by percent
-    if mod(i,step/100) == 0
+    if mod(i,round(step/100)) == 0
         fprintf('PF algorithm %%%4.1f done\n',k)
         k = min(k+1,100);
     end
