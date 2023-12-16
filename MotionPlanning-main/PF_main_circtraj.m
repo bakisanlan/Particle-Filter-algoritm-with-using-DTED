@@ -3,8 +3,8 @@ addpath(genpath(cd))
 
 %% SIMULATION PARAMETERS
 %rng(40,"twister")
-% load("s.mat")
-% rng(s);
+%load("s.mat")
+%rng(s);
 %% Loading Unity circular traj time series data as 'out'
 % Unity out has dt = 0.01 and t_final = 250s;
 load("trimmedCircularTrajData.mat") 
@@ -19,7 +19,7 @@ load("trimmedCircularTrajData.mat")
 sample_space = 1;      % number of sample space, value 1 is same with unity data
 init_t = 3;              % because of first 2 sample is broken from unity we take samples after 2
 unity_dt = 0.01;
-tf = 10/unity_dt;       % we choose to take samples until 200 s.
+tf = 200/unity_dt;       % we choose to take samples until 200 s.
 
 %% Take Real aircraft States and Inputs
 aircraft_pos = out.logsout.find('xyz_m').Values.Data(init_t:tf,:);  % real aircraft posisiton(Unity)
@@ -78,11 +78,11 @@ ndownsample = 1;
 dted = h1.getMetricGridElevationMap(boundary_left_lower_lla, boundary_right_upper_lla, ndownsample);
 
 %% Particles Property
-N = 400; % Number of particles
+N = 500; % Number of particles
 range_part = 2000; % uniformly distribute particles around aircraft with that range
 x_range = [aircraft_pos_rel_leftlow(1,1) - 0.5*range_part  aircraft_pos_rel_leftlow(1,1) + 0.5*range_part];
 y_range = [aircraft_pos_rel_leftlow(1,2) - 0.5*range_part  aircraft_pos_rel_leftlow(1,2) + 0.5*range_part];
-exp_rate = 0.005;  % exploration rate of PF 
+exp_rate = 0.001;  % exploration rate of PF 
 
 %% PF Algorithm Parameters
 step = length(aircraft_pos(:,1));  % 
@@ -126,22 +126,26 @@ for i=1:step
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % % plot of estimation process of particles step by step
-    % p = plot(PF.particles(:,2),PF.particles(:,1),'y.', ...
+    % p = plot(PF.particles(:,2),PF.particles(:,1),'k.', ...
     %          aircraft_pos_rel_leftlow(i,2),aircraft_pos_rel_leftlow(i,1),'r+', ...
-    %          meann(2),meann(1),'*b');
-    % p(1).MarkerSize = 5;
+    %          meann(2),meann(1),'*g');
+    % p(1).MarkerSize = 1;
     % p(2).MarkerSize = 5;
     % p(3).MarkerSize = 5;
     % legend('Particles','True Position','PF Estimation')
-    % xlim([aircraft_pos_rel_leftlow(i,2)-3000 aircraft_pos_rel_leftlow(i,2)+3000]);
-    % ylim([aircraft_pos_rel_leftlow(i,1)-3000 aircraft_pos_rel_leftlow(i,1)+3000]);
+    % plt_ext = 1250;
+    % xlim([aircraft_pos_rel_leftlow(i,2)-plt_ext aircraft_pos_rel_leftlow(i,2)+plt_ext]);
+    % ylim([aircraft_pos_rel_leftlow(i,1)-plt_ext aircraft_pos_rel_leftlow(i,1)+plt_ext]);
     % xlabel('East(m)')
     % ylabel('North(m)')
     % title('One Step Particles Aircraft Motion and Particles')
     % grid on
     % % adding text that shows error
-    % text(aircraft_pos_rel_leftlow(i,2)-2500,aircraft_pos_rel_leftlow(i,1)+2500,['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
+    % text(aircraft_pos_rel_leftlow(i,2)-(plt_ext-500),aircraft_pos_rel_leftlow(i,1)+(plt_ext-500),['Distance Error = ' num2str(estim_error)],'Color','red','FontSize',10)
     % % pause simulation for seeing clearly step by step
+    % if i ==1
+    %     pause(1);
+    % end
     % pause(0.1);
     % clf(fig)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -174,9 +178,9 @@ close(fig)
 h1.visualizeDTED(boundary_left_lower_lla,boundary_right_upper_lla);
 hold on 
 
-nsample = round(length(aircraft_pos_rel_leftlow(:,1))/20);
-nsample = 2;
-
+plot_perc = 20; % Percentage of samples will showing on plot
+nsample = 100*(length(aircraft_pos_rel_leftlow(:,1))-1)/(length(aircraft_pos_rel_leftlow(:,1))*plot_perc);
+nsample = round(nsample);
 
 plot_aircraft_pos = aircraft_pos_rel_leftlow(1:nsample:end,:);
 plot_estimated_pos = estimated_pos(1:nsample:end,:);
@@ -192,10 +196,10 @@ particles_lla = ned2lla([plot_particles_history(:,1) plot_particles_history(:,2)
 real_pos_lla = ned2lla([plot_aircraft_pos(:,1) plot_aircraft_pos(:,2) -alt*ones(length(plot_aircraft_pos(:,1)),1)],boundary_left_lower_lla,'flat');
 estimated_pos_lla = ned2lla([plot_estimated_pos(:,1) plot_estimated_pos(:,2) -alt*ones(length(plot_estimated_pos(:,1)),1)],boundary_left_lower_lla,'flat');
 
-p = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'y.', ...
+p = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'k.', ...
           real_pos_lla(:,2),real_pos_lla(:,1),real_pos_lla(:,3),'r+'   , ...
-          estimated_pos_lla(:,2),estimated_pos_lla(:,1),estimated_pos_lla(:,3),'*b');
-p(1).MarkerSize = 5;
+          estimated_pos_lla(:,2),estimated_pos_lla(:,1),estimated_pos_lla(:,3),'*g');
+p(1).MarkerSize = 1;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
 legend({'DTED Mesh','Particles','True Position','PF Estimation'},Location="best")
@@ -208,10 +212,10 @@ set(gca,'BoxStyle','full','Box','on')
 
 % 2D FIGURE OF PARTICLES AND ESTIMATION FIGURE
 figure(2);
-p = plot(plot_particles_history(:,2),plot_particles_history(:,1),'y.', ...
+p = plot(plot_particles_history(:,2),plot_particles_history(:,1),'k.', ...
                            plot_aircraft_pos(:,2),plot_aircraft_pos(:,1),'r+', ...
-                           plot_estimated_pos(:,2),plot_estimated_pos(:,1),'*b');
-p(1).MarkerSize = 5;
+                           plot_estimated_pos(:,2),plot_estimated_pos(:,1),'*g');
+p(1).MarkerSize = 1;
 p(2).MarkerSize = 5;
 p(3).MarkerSize = 5;
 legend('Particles','True Position','PF Estimation')
