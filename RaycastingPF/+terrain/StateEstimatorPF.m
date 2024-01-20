@@ -153,7 +153,7 @@ classdef StateEstimatorPF < handle
                 x_particle = self.particles(i,1);
                 y_particle = self.particles(i,2);
                 self.hReferenceMapScanner.positionLiDAR([1, 2]) = [x_particle y_particle];
-
+                disp(self.hReferenceMapScanner.positionLiDAR)
                 if flagRAYCAST
                     self.hReferenceMapScanner.scanTerrain(false);
                     Z = self.hReferenceMapScanner.ptCloud.Location(:,3);
@@ -165,6 +165,7 @@ classdef StateEstimatorPF < handle
                     end
                 end
 
+                Z
                 % TO RESOLVE LATER. Decide the best way to treat NANs.
                 idx = or(isnan(Z),isnan(Zr));
                 flag = 2;
@@ -184,6 +185,7 @@ classdef StateEstimatorPF < handle
                 end
 
                 self.elev_particles_pc(i,:) = Z;
+                %Z
             end
         end
 

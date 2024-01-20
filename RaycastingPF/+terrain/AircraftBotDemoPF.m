@@ -19,16 +19,21 @@ hRadar.rayRange = 1500;
 
 % DEM settings
 % Downsampled by 10, thus 300m resolution
-hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
-hRadar.showMap; axis('auto');
-hRadar.hFigure.CurrentAxes.Children(2).FaceColor = 'flat'; view(2);
-colorbar;
-set(hRadar.hFigure,'WindowStyle','docked')
-hLocationPoint = hRadar.hFigure.Children(3).Children(1); % handle to aircraft location
-hLocationPoint.Marker = "^";
-hLocationPoint.MarkerSize = 10;
-hLocationPoint.MarkerFaceColor = "cyan";
+left_lower = [36.18777778 -112.54111111];
+right_upper = [36.38000000 -112.31166667];
+%hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
+hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
+hDEM.visualizeDTED(left_lower,right_upper)
 
+% hRadar.showMap; axis('auto');
+% hRadar.hFigure.CurrentAxes.Children(2).FaceColor = 'flat'; view(2);
+% colorbar;
+% set(hRadar.hFigure,'WindowStyle','docked')
+% hLocationPoint = hRadar.hFigure.Children(3).Children(1); % handle to aircraft location
+% hLocationPoint.Marker = "^";
+% hLocationPoint.MarkerSize = 10;
+% hLocationPoint.MarkerFaceColor = "cyan";
+%%
 % Reference map scanner settings
 hReferenceMapScanner.dtheta     = hRadar.dtheta;
 hReferenceMapScanner.dpsi       = hRadar.dpsi;
@@ -37,9 +42,9 @@ hReferenceMapScanner.DTED       = hRadar.DTED;
 
 % Aircraft settings
 % Initial pose
-x0      = 1500;
-y0      = 1500;
-z0      = 500;
+x0      = 0;
+y0      = 0;
+z0      = 3000;
 psi0    = 20*pi/180;
 Ts      = 2;
 hAircraft.Pose          = [x0; y0; z0; psi0];
@@ -51,7 +56,7 @@ TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
 
 % Estimator settings
-hEstimator = terrain.StateEstimatorPF(1000,hAircraft.Pose,500,500,0,3,Ts);
+hEstimator = terrain.StateEstimatorPF(400,hAircraft.Pose,500,500,0.1,3,Ts);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 

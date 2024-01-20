@@ -17,12 +17,15 @@ classdef DigitalElevationModel < handle
     methods
         function obj = DigitalElevationModel(~,~)
             %DigitalElevationModel Constructs a DEM terrain object.
-            
+
             obj.mapWidth = 1000;
 
             % Load elevation data from file
+            % obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
+            %     'data/n41_e029_1arc_v3.dt2'));
             obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
-                'data/n41_e029_1arc_v3.dt2'));
+                'data/n36_w113_1arc_v3.dt2'));
+
         end
 
         function loadData(obj,filename)
@@ -41,7 +44,7 @@ classdef DigitalElevationModel < handle
             %slice Return a slice of the loaded DTED data.
             latA = lowerLeftPoint(1);  lonA = lowerLeftPoint(2);
             latB = upperRightPoint(1); lonB = upperRightPoint(2);
-            
+
             maxLong = lonB + obj.R.SampleSpacingInLongitude;
             maxLat  = latB + obj.R.SampleSpacingInLatitude;
             [~,maxLongIdx] = min(abs(obj.longitudes - maxLong));
@@ -54,7 +57,7 @@ classdef DigitalElevationModel < handle
 
             lons = obj.longitudes(minLongIdx:maxLongIdx);
             lats = obj.latitudes(minLatIdx:maxLatIdx);
-            
+
             As = obj.A(minLatIdx:maxLatIdx,minLongIdx:maxLongIdx);
             Rs = obj.R;
             Rs.LatitudeLimits  = [min(lats) max(lats)];
@@ -81,28 +84,29 @@ classdef DigitalElevationModel < handle
             dted = [{x}, {y}, {z}];
         end
 
-        function visualizeDTED(obj)
+        function visualizeDTED(obj,lla,ll0)
             %visualizeDTED For testing purposes.
             %   This file loads and visualize DTED at (41N, 29E) of the
             %   Bosphorus.
 
-            hF1 = figure; clf;
-            usamap(obj.R.LatitudeLimits,obj.R.LongitudeLimits);
-            geoshow(flip(obj.A),obj.R,"DisplayType","surface");
-            cmap = demcmap(obj.A,16); colormap(hF1,cmap); colorbar;
+            % hF1 = figure; clf;
+            % usamap(obj.R.LatitudeLimits,obj.R.LongitudeLimits);
+            % geoshow(flip(obj.A),obj.R,"DisplayType","surface");
+            % cmap = demcmap(obj.A,16); colormap(hF1,cmap); colorbar;
 
-            hF2 = figure; clf;
-            [As, Rs, lats, lons] = slice(obj,[41 29],[41.30 29.20]);
-            usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
-            geoshow(flip(As),Rs,"DisplayType","surface");
-            cmap = demcmap(As,16); colormap(hF2,cmap); colorbar;
+            % hF2 = figure; clf;
+            % title('Aircraft DTED Path Map')
+            [As, Rs, lats, lons] = slice(obj,lla,ll0);
+            % usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
+            % geoshow(flip(As),Rs,"DisplayType","surface");
+            cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
 
             hF3 = figure; clf;
             mesh(lons, lats, As);
-            pbaspect([1 1 0.1]); view(-7,31);
+            %pbaspect([1 1 0.05]); %view(-7,31);
             axis([min(lons) max(lons) min(lats) max(lats)]);
             xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
-            colormap(hF3,cmap); colorbar;
+            colormap(hF3,cmap); colorbar('Location','westoutside');
         end
 
     end
