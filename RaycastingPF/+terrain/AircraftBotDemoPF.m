@@ -14,7 +14,7 @@ hAircraft               = terrain.AircraftBot(zeros(4,1),0);
 % Radar settings
 hRadar.dtheta   = 10;
 hRadar.dpsi     = 10;
-hRadar.rayRange = 4000;
+hRadar.rayRange = 2000;
 
 % DEM settings
 % Downsampled by 10, thus 300m resolution
