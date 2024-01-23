@@ -40,7 +40,8 @@ classdef StateEstimatorPF < handle
             self.weights = ones(self.N,1)/self.N;
         end
 
-        function param_estimate = getEstimate(self,u,ptCloudRadar,flagRAYCAST)
+        function param_estimate = getEstimate(self,prior,u,ptCloudRadar,flagRAYCAST)
+            self.priorPose = prior;
 
             self.particle_step(u);
 
@@ -86,18 +87,28 @@ classdef StateEstimatorPF < handle
             u = reshape(u, numel(u),1); % column vector
 
             % Updated based on input
-            dPose1_dt = u(1) .* cos(self.particles(:,4));
-            dPose2_dt = u(1) .* sin(self.particles(:,4));
-            dPose3_dt = 0;
-            dPose4_dt = u(2);
+            % dPose1_dt = u(1) .* cos(self.particles(:,4));
+            % dPose2_dt = u(1) .* sin(self.particles(:,4));
+            % dPose3_dt = 0;
+            % dPose4_dt = u(2);
+            % 
+            % % vn = (u(1) * self.dt) + (randn(self.N, 1) * self.imu_std(1));
+            % % ve = (u(2) * self.dt) + (randn(self.N, 1) * self.imu_std(2));
+            % 
+            % self.particles(:, 1) = self.particles(:, 1) + self.dt .* dPose1_dt;
+            % self.particles(:, 2) = self.particles(:, 2) + self.dt .* dPose2_dt;
+            % self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
+            % self.particles(:, 4) = self.particles(:, 4) + self.dt .* dPose4_dt;
 
-            % vn = (u(1) * self.dt) + (randn(self.N, 1) * self.imu_std(1));
-            % ve = (u(2) * self.dt) + (randn(self.N, 1) * self.imu_std(2));
+            dPose1_dt = u(1) .* cos(u(2));
+            dPose2_dt = u(1) .* sin(u(2));
+            dPose3_dt = 0;
+            %dPose4_dt = 0;
 
             self.particles(:, 1) = self.particles(:, 1) + self.dt .* dPose1_dt;
             self.particles(:, 2) = self.particles(:, 2) + self.dt .* dPose2_dt;
             self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
-            self.particles(:, 4) = self.particles(:, 4) + self.dt .* dPose4_dt;
+            self.particles(:, 4) = u(2);
 
         end
 
@@ -129,6 +140,11 @@ classdef StateEstimatorPF < handle
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
 
+            %disp(size(Zr'))
+            %disp((mean_sqrt_error))
+            %disp(self.elev_particles_pc)
+
+
             % Below code for resampling criteria. There are many methods to
             % choose when we should resample but we choose N_eff < N/2 criteria
             % If condition is provided, we are resampling our particles
@@ -142,18 +158,23 @@ classdef StateEstimatorPF < handle
 
         function find_elev_particles_pc(self,ptCloudRadar,flagRAYCAST)
 
+            % updating reference map scanner via prior estimate
+            self.hReferenceMapScanner.positionLiDAR    = self.priorPose(1:3,1);
+            self.hReferenceMapScanner.orientationLiDAR = self.priorPose(4:6,1);
+
+
             % true altitude point cloud data
             Zr = ptCloudRadar.Location(:,3);
             n = numel(Zr);
 
             self.elev_particles_pc = zeros(self.N,n);
 
-            for i=1:length(self.N)
+            for i=1:self.N
 
                 x_particle = self.particles(i,1);
                 y_particle = self.particles(i,2);
                 self.hReferenceMapScanner.positionLiDAR([1, 2]) = [x_particle y_particle];
-                disp(self.hReferenceMapScanner.positionLiDAR)
+                %disp(self.hReferenceMapScanner.positionLiDAR)
                 if flagRAYCAST
                     self.hReferenceMapScanner.scanTerrain(false);
                     Z = self.hReferenceMapScanner.ptCloud.Location(:,3);
@@ -165,7 +186,6 @@ classdef StateEstimatorPF < handle
                     end
                 end
 
-                Z
                 % TO RESOLVE LATER. Decide the best way to treat NANs.
                 idx = or(isnan(Z),isnan(Zr));
                 flag = 2;
@@ -260,6 +280,7 @@ classdef StateEstimatorPF < handle
 
                 range_rand_part = [0.5*self.x_span ; 0.5*self.y_span];
 
+                %disp(self.weights)
                 rand_partc = self.create_uniform_particles(n_rand_partc,self.meann,range_rand_part);
 
                 self.particles = [self.particles(sample_indx,:) ; rand_partc];

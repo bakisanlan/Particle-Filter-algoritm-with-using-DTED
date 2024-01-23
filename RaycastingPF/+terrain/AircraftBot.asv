@@ -48,9 +48,7 @@ classdef AircraftBot < handle
             % dPose_dt = f + g * u;
             % obj.Pose = obj.Pose + dPose_dt * obj.dt;
 
-            dPose_dt = [u(1)*cos(u(2)); u(1)*sin(u(2)) ; 0 ; 0];
-            obj.Pose = obj.Pose + dPose_dt .* obj.dt;
-            obj.Pose(4) = u(2);
+            dPose_dt = 
         end
     end
 end

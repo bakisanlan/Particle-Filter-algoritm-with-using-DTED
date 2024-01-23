@@ -102,6 +102,8 @@ classdef StateEstimator < handle
                 end
             end
 
+            %Z
+
             % TO RESOLVE LATER. Decide the best way to treat NANs.
             idx = or(isnan(Z),isnan(Zr));
             flag = 2;

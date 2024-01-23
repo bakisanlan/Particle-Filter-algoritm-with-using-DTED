@@ -1,0 +1,12 @@
+% creating trajectory from waypoints
+cpts = [transpose(topgun_pos(:,1)); transpose(topgun_pos(:,2))];
+tpts = [0 1];
+tvec = 0:0.001:1;
+[pos, ~, ~, ~] = bsplinepolytraj(cpts,tpts,tvec);
+
+tt = linspace(0,1,118);
+
+topgun_pos = topgun_pos';
+%%
+
+topgun_traj_headheadingFromXY(pos')
