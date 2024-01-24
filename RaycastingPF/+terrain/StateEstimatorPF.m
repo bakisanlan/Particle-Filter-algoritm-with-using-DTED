@@ -22,6 +22,7 @@ classdef StateEstimatorPF < handle
         weights
         meann
         var
+        Zr
     end
     %% PF Functions
     methods (Access = public)
@@ -40,10 +41,10 @@ classdef StateEstimatorPF < handle
             self.weights = ones(self.N,1)/self.N;
         end
 
-        function param_estimate = getEstimate(self,prior,u,ptCloudRadar,flagRAYCAST)
+        function param_estimate = getEstimate(self,prior,u,ptCloudRadar,flagRAYCAST, modelF)
             self.priorPose = prior;
 
-            self.particle_step(u);
+            self.particle_step(u,modelF);
 
             self.update_weights(ptCloudRadar,flagRAYCAST)
 
@@ -72,7 +73,7 @@ classdef StateEstimatorPF < handle
             particles(:, 4) = init_pos(4);
         end
 
-        function particle_step(self, u)
+        function particle_step(self, u, modelF)
 
             %MOVE Moves the aircraft based on the provided input.
             %
@@ -87,29 +88,31 @@ classdef StateEstimatorPF < handle
             u = reshape(u, numel(u),1); % column vector
 
             % Updated based on input
-            % dPose1_dt = u(1) .* cos(self.particles(:,4));
-            % dPose2_dt = u(1) .* sin(self.particles(:,4));
-            % dPose3_dt = 0;
-            % dPose4_dt = u(2);
-            % 
-            % % vn = (u(1) * self.dt) + (randn(self.N, 1) * self.imu_std(1));
-            % % ve = (u(2) * self.dt) + (randn(self.N, 1) * self.imu_std(2));
-            % 
-            % self.particles(:, 1) = self.particles(:, 1) + self.dt .* dPose1_dt;
-            % self.particles(:, 2) = self.particles(:, 2) + self.dt .* dPose2_dt;
-            % self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
-            % self.particles(:, 4) = self.particles(:, 4) + self.dt .* dPose4_dt;
 
-            dPose1_dt = u(1) .* cos(u(2));
-            dPose2_dt = u(1) .* sin(u(2));
-            dPose3_dt = 0;
-            %dPose4_dt = 0;
+            % different model structure
+            if modelF == 1
+                dPose1_dt = u(1) .* cos(self.particles(:,4));
+                dPose2_dt = u(1) .* sin(self.particles(:,4));
+                dPose3_dt = 0;
+                dPose4_dt = u(2);
 
-            self.particles(:, 1) = self.particles(:, 1) + self.dt .* dPose1_dt;
-            self.particles(:, 2) = self.particles(:, 2) + self.dt .* dPose2_dt;
-            self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
-            self.particles(:, 4) = u(2);
+                self.particles(:, 1) = self.particles(:, 1) + self.dt .* dPose1_dt + (randn(self.N, 1) * 5);
+                self.particles(:, 2) = self.particles(:, 2) + self.dt .* dPose2_dt + (randn(self.N, 1) * 5);
+                self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
+                self.particles(:, 4) = self.particles(:, 4) + self.dt .* dPose4_dt;
+                
+            else
+                dPose1_dt = u(1) .* cos(u(2));
+                dPose2_dt = u(1) .* sin(u(2));
+                dPose3_dt = 0;
+    
+                self.particles(:, 1) = self.particles(:, 1) + self.dt .* dPose1_dt + (randn(self.N, 1) * 5);
+                self.particles(:, 2) = self.particles(:, 2) + self.dt .* dPose2_dt + (randn(self.N, 1) * 5);
+                self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
+                self.particles(:, 4) = u(2);
+            end
 
+            %disp(self.particles(:,1))
         end
 
         function update_weights(self,ptCloudRadar,flagRAYCAST)
@@ -121,7 +124,7 @@ classdef StateEstimatorPF < handle
 
             % Store real radar elevation data for comparing with particles point
             % cloud radar elevation data
-            Zr = ptCloudRadar.Location(:,3);  % 81x1
+            %Zr = ptCloudRadar.Location(:,3);  % 81x1
 
             % Below code block is the core of Particle Filter algorithm.
             % For each particle, we are taking mean of all 81 point cloud
@@ -133,16 +136,18 @@ classdef StateEstimatorPF < handle
             % estimate(Bayes theorem)
             %
 
-            mean_sqrt_error = sqrt(mean((self.elev_particles_pc - Zr').^2,2));
+            mean_sqrt_error = sqrt(mean((self.elev_particles_pc - self.Zr').^2,2));
             self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (mean_sqrt_error./self.alt_std).^2);
             %self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (mean_sqrd_error./self.alt_std).^2);
+
+            %disp(self.weights)
 
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
 
             %disp(size(Zr'))
             %disp((mean_sqrt_error))
-            %disp(self.elev_particles_pc)
+            %disp(self.mean)
 
 
             % Below code for resampling criteria. There are many methods to
@@ -164,8 +169,8 @@ classdef StateEstimatorPF < handle
 
 
             % true altitude point cloud data
-            Zr = ptCloudRadar.Location(:,3);
-            n = numel(Zr);
+            self.Zr = ptCloudRadar.Location(:,3);
+            n = numel(self.Zr);
 
             self.elev_particles_pc = zeros(self.N,n);
 
@@ -187,21 +192,21 @@ classdef StateEstimatorPF < handle
                 end
 
                 % TO RESOLVE LATER. Decide the best way to treat NANs.
-                idx = or(isnan(Z),isnan(Zr));
+                idx = or(isnan(Z),isnan(self.Zr));
                 flag = 2;
                 if flag == 0
                     % Using world frame, with NaNs replaced by zeros
-                    Z = Z + self.hReferenceMapScanner.positionLiDAR(3); Zr = Zr + self.hReferenceMapScanner.positionLiDAR(3);
+                    Z = Z + self.hReferenceMapScanner.positionLiDAR(3); self.Zr = self.Zr + self.hReferenceMapScanner.positionLiDAR(3);
                     Z(idx) = 0;
-                    Zr(idx) = Z(idx);
+                    self.Zr(idx) = Z(idx);
                 elseif flag == 1
                     % Deleting NaNs
                     Z(idx) = [];
-                    Zr(idx) = [];
+                    self.Zr(idx) = [];
                 elseif flag == 2
                     % Using local frame with NaNs replaced by zero w.r.t. sensor frame
                     Z(idx) = 0 - self.hReferenceMapScanner.positionLiDAR(3);
-                    Zr(idx) = Z(idx);
+                    self.Zr(idx) = Z(idx);
                 end
 
                 self.elev_particles_pc(i,:) = Z;
@@ -273,14 +278,15 @@ classdef StateEstimatorPF < handle
             % array that is produced by resampling method with some
             % 1-exploration rate. And remaining particles are created
             % uniform randomly in range of last mean value with exploration rate.
-            if self.exp_rate ~= 0
+            if (self.exp_rate ~= 0) && ~isempty(self.meann) 
 
                 n_rand_partc = round(self.N*self.exp_rate);
                 sample_indx = randsample(indexes, self.N - n_rand_partc);
 
-                range_rand_part = [0.5*self.x_span ; 0.5*self.y_span];
+                range_rand_part = [2*self.x_span ; 2*self.y_span];
 
                 %disp(self.weights)
+
                 rand_partc = self.create_uniform_particles(n_rand_partc,self.meann,range_rand_part);
 
                 self.particles = [self.particles(sample_indx,:) ; rand_partc];

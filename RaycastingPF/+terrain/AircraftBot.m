@@ -21,7 +21,7 @@ classdef AircraftBot < handle
 
         end
 
-        function move(obj, u)
+        function move(obj, u, flag)
             %MOVE Moves the aircraft based on the provided input.
             %
             %   The kinematics are represented by
@@ -34,23 +34,27 @@ classdef AircraftBot < handle
 
             u = reshape(u, numel(u),1); % column vector
 
-            % % Updated based on input
-            % f =[0;
-            %     0;
-            %     0;
-            %     0];
-            % 
-            % g =[cos(obj.Pose(4))    0;
-            %     sin(obj.Pose(4))    0;
-            %     0                   0;
-            %     0                   1];
-            % 
-            % dPose_dt = f + g * u;
-            % obj.Pose = obj.Pose + dPose_dt * obj.dt;
+            % Updated based on input
+            if flag ==1
+                f =[0;
+                    0;
+                    0;
+                    0];
+    
+                g =[cos(obj.Pose(4))    0;
+                    sin(obj.Pose(4))    0;
+                    0                   0;
+                    0                   1];
+    
+                dPose_dt = f + g * u;
+                obj.Pose = obj.Pose + dPose_dt * obj.dt;
 
-            dPose_dt = [u(1)*cos(u(2)); u(1)*sin(u(2)) ; 0 ; 0];
-            obj.Pose = obj.Pose + dPose_dt .* obj.dt;
-            obj.Pose(4) = u(2);
+            else
+
+                dPose_dt = [u(1)*cos(u(2)); u(1)*sin(u(2)) ; 0 ; 0];
+                obj.Pose = obj.Pose + dPose_dt .* obj.dt;
+                obj.Pose(4) = u(2);
+            end
         end
     end
 end

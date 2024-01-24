@@ -15,16 +15,21 @@ classdef DigitalElevationModel < handle
     end
 
     methods
-        function obj = DigitalElevationModel(~,~)
+        function obj = DigitalElevationModel(scene)
             %DigitalElevationModel Constructs a DEM terrain object.
 
             obj.mapWidth = 1000;
 
             % Load elevation data from file
-            % obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
-            %     'data/n41_e029_1arc_v3.dt2'));
+
+            if scene == 1
+            obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
+                'data/n41_e029_1arc_v3.dt2'));
+            elseif scene ==2
+
             obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
                 'data/n36_w113_1arc_v3.dt2'));
+            end
 
         end
 

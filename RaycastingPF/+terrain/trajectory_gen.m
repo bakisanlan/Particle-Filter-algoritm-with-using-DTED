@@ -1,6 +1,6 @@
 % creating trajectory from waypoints
 clc;clear
-load('data/topgun_traj.mat')
+load('data/topgun_newtraj.mat')
 cpts = [transpose(topgun_pos(:,1)); transpose(topgun_pos(:,2))];
 tpts = [0 200];
 tvec = 0:2:200;

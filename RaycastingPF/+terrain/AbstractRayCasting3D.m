@@ -75,7 +75,7 @@ classdef AbstractRayCasting3D < handle
             if nargin < 1
                 % Default argument
                 % Dimensions and scanner parameters
-                obj.positionLiDAR = [0;0;3000];
+                obj.positionLiDAR = [0;0;50];
                 obj.orientationLiDAR = [45; 0; 0];
                 obj.rayRange = 1000;
                 obj.dpsi = 1;
