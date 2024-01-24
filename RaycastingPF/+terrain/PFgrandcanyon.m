@@ -146,3 +146,4 @@ p2 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g*');
 p3 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
 
 p1.MarkerSize = 10;
+legend({'DTED Mesh','Particles','True Position','PF Estimation'},Location="best")
