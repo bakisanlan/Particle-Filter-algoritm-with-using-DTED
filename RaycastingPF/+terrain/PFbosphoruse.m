@@ -3,7 +3,9 @@
 
 clc; clear; close all;
 
-rng(5,'twister')
+%rng(5,'twister')
+rng('default');
+
 %% Create simulation objects
 scene = 1;
 hDEM                    = terrain.DigitalElevationModel(scene);
@@ -55,12 +57,14 @@ hAircraft.Pose          = [x0; y0; z0; psi0];
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
+hAircraft.WithNoise     = true;      % Enables wind disturbance
+
 
 TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
 
 % Estimator settings
-hEstimator = terrain.StateEstimatorPF(200,hAircraft.Pose,500,500,0,10,Ts);
+hEstimator = terrain.StateEstimatorPF(200,hAircraft.Pose,500,500,0,3,Ts);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 %% Game Loop

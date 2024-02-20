@@ -71,7 +71,7 @@ TraceEstimatedPose = [];
 
 % Estimator settings
 N =200;
-hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,500,500,0,10,Ts);
+hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,500,500,0,3,Ts);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 %% Game Loop
@@ -85,7 +85,7 @@ u = [topgun_traj_velocity(1:length(topgun_traj_velocity)/loop_sampling:end)...
      topgun_traj_heading(1:length(topgun_traj_heading)/loop_sampling:end)];
 i = 1;
 
-Tf = 40;
+Tf = 200;
 while simTime < Tf
 
     %u = [100; 2*pi/500];
@@ -101,7 +101,7 @@ while simTime < Tf
     % Estimate using x-y grid overlaying and not full ray casting
     tic
     param = hEstimator.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
-                                    u(i,:),hRadar.ptCloud, false,2);
+                                    u(i,:),hRadar.ptCloud, true,2);
     toc
 
     hAircraft.EstimatedPose = [param(1); param(2)];
