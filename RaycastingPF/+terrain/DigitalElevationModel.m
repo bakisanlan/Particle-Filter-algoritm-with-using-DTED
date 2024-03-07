@@ -107,11 +107,12 @@ classdef DigitalElevationModel < handle
             cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
 
             hF3 = figure; clf;
-            mesh(lons, lats, As);
+            a = mesh(lons, lats, As);
+            set(a,'FaceColor','flat','EdgeColor','none')
             %pbaspect([1 1 0.05]); %view(-7,31);
             axis([min(lons) max(lons) min(lats) max(lats)]);
             xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
-            colormap(hF3,cmap); colorbar('Location','westoutside');
+            colormap(hF3,cmap2gray(cmap)); colorbar('Location','westoutside');
         end
 
     end

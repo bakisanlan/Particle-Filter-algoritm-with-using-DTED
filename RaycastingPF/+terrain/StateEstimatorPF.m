@@ -23,11 +23,17 @@ classdef StateEstimatorPF < handle
         meann
         var
         Zr
+        particles_pc
+        mean_sqrd_error
+        corr
+        non_idx
     end
     %% PF Functions
     methods (Access = public)
         function self = StateEstimatorPF(N,init_pos,x_span,y_span,exp_rate,alt_std,dt)
             % Defining properties
+            rng(5,'twister')
+
             self.N = N;
             self.x_span = x_span;
             self.y_span = y_span;
@@ -74,6 +80,8 @@ classdef StateEstimatorPF < handle
         end
 
         function particle_step(self, u, modelF)
+            rng(5,'twister')
+
 
             %MOVE Moves the aircraft based on the provided input.
             %
@@ -136,25 +144,31 @@ classdef StateEstimatorPF < handle
             % estimate(Bayes theorem)
             %
 
-            mean_sqrt_error = sqrt(mean((self.elev_particles_pc - self.Zr').^2,2));
-            self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (mean_sqrt_error./self.alt_std).^2);
-            %self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (mean_sqrd_error./self.alt_std).^2);
+            %self.mean_sqrd_error = sqrt(mean((self.elev_particles_pc - self.Zr').^2,2));
+            % a = mean((self.elev_particles_pc - self.Zr').^2,2);
+            % a
 
-            %disp(self.weights)
+            %self.alt_std = min(mean_sqrt_error);
+            %corr = -(self.Zr'*self.elev_particles_pc) / sqrt((self.Zr'*self.elev_particles_pc)*(self.elev_particles_pc'*self.elev_particles_pc));
+
+            %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
+            self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.mean_sqrd_error./self.alt_std).^2);
 
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
 
             %disp(size(Zr'))
-            %disp((mean_sqrt_error))
-            %disp(self.mean)
-
+            %disp((self.mean_sqrd_error))
+            %disp(self.corr)
+            %disp(self.weights)
 
             % Below code for resampling criteria. There are many methods to
             % choose when we should resample but we choose N_eff < N/2 criteria
             % If condition is provided, we are resampling our particles
             % with Systematic resampling methods.
             if self.neff < self.N/2
+            %if false
+
                 indexes = self.resample_Systematic;
                 self.resample(indexes)
             end
@@ -168,13 +182,15 @@ classdef StateEstimatorPF < handle
             self.hReferenceMapScanner.orientationLiDAR = self.priorPose(4:6,1);
 
 
-            % true altitude point cloud data
-            self.Zr = ptCloudRadar.Location(:,3);
-            n = numel(self.Zr);
-
-            self.elev_particles_pc = zeros(self.N,n);
+            % % true altitude point cloud data
+            % self.Zr = ptCloudRadar.Location(:,3);
+            % n = numel(self.Zr);
 
             for i=1:self.N
+
+                % true altitude point cloud data
+                self.Zr = ptCloudRadar.Location(:,3);
+                n = numel(self.Zr);
 
                 x_particle = self.particles(i,1);
                 y_particle = self.particles(i,2);
@@ -183,17 +199,19 @@ classdef StateEstimatorPF < handle
                 if flagRAYCAST
                     self.hReferenceMapScanner.scanTerrain(false);
                     Z = self.hReferenceMapScanner.ptCloud.Location(:,3);
+                    particle_pc = self.hReferenceMapScanner.ptCloud.Location(:,1:2);
                 else
                     XrYr = ptCloudRadar.Location(:,1:2);
                     Z = zeros(n,1);
                     for j=1:n
                         Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
                     end
+                    particle_pc = XrYr;
                 end
 
                 % TO RESOLVE LATER. Decide the best way to treat NANs.
                 idx = or(isnan(Z),isnan(self.Zr));
-                flag = 2;
+                flag = 1;
                 if flag == 0
                     % Using world frame, with NaNs replaced by zeros
                     Z = Z + self.hReferenceMapScanner.positionLiDAR(3); self.Zr = self.Zr + self.hReferenceMapScanner.positionLiDAR(3);
@@ -201,15 +219,35 @@ classdef StateEstimatorPF < handle
                     self.Zr(idx) = Z(idx);
                 elseif flag == 1
                     % Deleting NaNs
+                    self.non_idx(i,:) = idx;
                     Z(idx) = [];
                     self.Zr(idx) = [];
+                    %size(particle_pc)
+                    particle_pc(idx,:) = [];
+                    %size(particle_pc)
                 elseif flag == 2
                     % Using local frame with NaNs replaced by zero w.r.t. sensor frame
                     Z(idx) = 0 - self.hReferenceMapScanner.positionLiDAR(3);
                     self.Zr(idx) = Z(idx);
                 end
 
-                self.elev_particles_pc(i,:) = Z;
+                %self.elev_particles_pc = zeros(self.N,length(Z));
+
+                %self.elev_particles_pc(i,:) = Z;
+
+                %size(self.elev_particles_pc)
+
+                self.elev_particles_pc{i} = Z; 
+                self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
+                idx_err = isnan(self.mean_sqrd_error);
+                self.mean_sqrd_error(idx_err) = inf;
+
+                %mean((self.elev_particles_pc{i} - self.Zr).^2)
+                %size(self.elev_particles_pc{i} - self.Zr)
+                %self.elev_particles_pc{i}
+                self.corr(i,1) = -(self.Zr'*Z) / sqrt((self.Zr'*Z)*(Z'*Z));
+
+                self.particles_pc{i} = [particle_pc Z];
                 %Z
             end
         end
@@ -223,7 +261,7 @@ classdef StateEstimatorPF < handle
             var  = sum((pos - meann).^2 .* self.weights) / sum(self.weights);
 
             self.meann = meann;
-            self.var = var;
+            self.var = sqrt(var(1)^2 + var(2)^2);
         end
 
         % There are many resampling methods but we choose Systematic
