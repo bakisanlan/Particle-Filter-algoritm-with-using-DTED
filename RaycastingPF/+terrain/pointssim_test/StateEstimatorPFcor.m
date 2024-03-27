@@ -1,6 +1,6 @@
 % This version is faster all other PF class, because there are no for loop
 
-classdef StateEstimatorPF < handle
+classdef StateEstimatorPFcor < handle
 
     properties
 
@@ -23,7 +23,6 @@ classdef StateEstimatorPF < handle
         meann
         var
         Zr
-        radar_Z
         particles_pc
         mean_sqrd_error
         corr
@@ -32,11 +31,11 @@ classdef StateEstimatorPF < handle
         PARAMS
         FITTING
         QUANT
-        simparam
+        sim_mean_score
     end
     %% PF Functions
     methods (Access = public)
-        function self = StateEstimatorPF(N,init_pos,x_span,y_span,exp_rate,alt_std,dt)
+        function self = StateEstimatorPFcor(N,init_pos,x_span,y_span,exp_rate,alt_std,dt)
             % Defining properties
             rng(5,'twister')
 
@@ -180,27 +179,31 @@ classdef StateEstimatorPF < handle
             %corr = -(self.Zr'*self.elev_particles_pc) / sqrt((self.Zr'*self.elev_particles_pc)*(self.elev_particles_pc'*self.elev_particles_pc));
 
             %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
-            self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.mean_sqrd_error./self.alt_std).^2);
+            %self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.mean_sqrd_error./self.alt_std).^2);
+
+            likelihood = self.sim_mean_score;
+            %disp(likelihood);
+            self.weights = self.weights .* likelihood;
+            %std_cor = 0.05;
+            %self.weights = self.weights .* (1/(std_cor*2.506628274631)) .* exp(-0.5 .* (self.sim_mean_score./std_cor).^2);
 
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
-
+            disp(self.weights);
 
 
             %disp(size(Zr'))
             %disp((self.mean_sqrd_error))
             %disp(self.corr)
             %disp(self.weights)
-            fp = [self.mean_sqrd_error self.weights];
-            fp
-            %fprintf('mse %.4f, weights %.4f \n',fp);
 
             % Below code for resampling criteria. There are many methods to
             % choose when we should resample but we choose N_eff < N/2 criteria
             % If condition is provided, we are resampling our particles
             % with Systematic resampling methods.
-            %if self.neff < self.N/2
-            if false
+            if self.neff < self.N/2
+            %if false
+
                 indexes = self.resample_Systematic;
                 self.resample(indexes)
             end
@@ -231,14 +234,14 @@ classdef StateEstimatorPF < handle
                 if flagRAYCAST
                     self.hReferenceMapScanner.scanTerrain(false);
                     Z = self.hReferenceMapScanner.ptCloud.Location(:,3);
-                    particle_pc = self.hReferenceMapScanner.ptCloud.Location(:,1:2);
+                    particleXY_pc = self.hReferenceMapScanner.ptCloud.Location(:,1:2);
                 else
                     XrYr = ptCloudRadar.Location(:,1:2);
                     Z = zeros(n,1);
                     for j=1:n
                         Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
                     end
-                    particle_pc = XrYr;
+                    particleXY_pc = XrYr;
                 end
 
                 % TO RESOLVE LATER. Decide the best way to treat NANs.
@@ -255,7 +258,7 @@ classdef StateEstimatorPF < handle
                     Z(idx) = [];
                     self.Zr(idx) = [];
                     %size(particle_pc)
-                    particle_pc(idx,:) = [];
+                    particleXY_pc(idx,:) = [];
                     %size(particle_pc)
                 elseif flag == 2
                     % Using local frame with NaNs replaced by zero w.r.t. sensor frame
@@ -272,71 +275,73 @@ classdef StateEstimatorPF < handle
                 self.elev_particles_pc{i} = Z; 
                 self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
                 idx_err = isnan(self.mean_sqrd_error);
-                self.mean_sqrd_error(idx_err) = 999;
+                self.mean_sqrd_error(idx_err) = inf;
 
                 %mean((self.elev_particles_pc{i} - self.Zr).^2)
                 %size(self.elev_particles_pc{i} - self.Zr)
                 %self.elev_particles_pc{i}
-                %self.corr(i,1) = -(self.Zr'*Z) / sqrt((self.Zr'*Z)*(Z'*Z));
+                self.corr(i,1) = -(self.Zr'*Z) / sqrt((self.Zr'*Z)*(Z'*Z));
 
-                % lineer similarity corr
-                cor_matrix = corrcoef(self.Zr,Z); 
-                self.corr(i,1) = cor_matrix(1,2);
-
-                % cosine similarity corr
-                %self.corr(i,1) = (self.Zr'*Z) / sqrt((self.Zr'*self.Zr)*(Z'*Z)); 
-                
-                self.particles_pc{i} = [particle_pc Z];
-                self.radar_Z{i} = self.Zr;
-
-                % penalize the particles that have low corr coef from
-                % threshold for robustness
-                
-
-                % if self.corr(i,1) < 0.2
-                %     %self.mean_sqrd_error(i,1) = self.mean_sqrd_error(i,1) + 20*self.alt_std;
-                %     self.mean_sqrd_error(i,1) = inf;
-                % end
-
+                self.particles_pc{i} = [particleXY_pc Z];
                 %Z
 
-                %
-                % % Sort geometry
-                % radarPC = ptCloudRadar;
-                % particlePC = pointCloud([self.particles_pc{i}]);
+                %%%%%%%%%%%% Similarity of pcs %%%%%%%%%%%%%%%%%%%%
+                % % Configurations
+                % PARAMS.ATTRIBUTES.GEOM = false;
+                % PARAMS.ATTRIBUTES.NORM = false;
+                % PARAMS.ATTRIBUTES.CURV = true;
+                % PARAMS.ATTRIBUTES.COLOR = false;
                 % 
-                % A = radarPC;
-                % B = particlePC;
+                % PARAMS.ESTIMATOR_TYPE = {'VAR'};
+                % PARAMS.POOLING_TYPE = {'Mean'};
+                % PARAMS.NEIGHBORHOOD_SIZE = 6;
+                % PARAMS.CONST = eps(1);
+                % PARAMS.REF = 0;
                 % 
-                % [geomA, ~] = sortrows(A.Location);
-                % A = pointCloud(geomA);
+                % FITTING.SEARCH_METHOD = 'knn';
+                % knn = 12;
+                % FITTING.SEARCH_SIZE = knn;
                 % 
-                % [geomB, ~] = sortrows(B.Location);
-                % B = pointCloud(geomB);
                 % 
-                % % Point fusion
-                % A = pc_fuse_points(A);
-                % B = pc_fuse_points(B);
-                % 
-                % % Normals and curvatures estimation
-                % [normA, curvA] = pc_estimate_norm_curv_qfit(A, self.FITTING.SEARCH_METHOD, self.FITTING.SEARCH_SIZE);
-                % [normB, curvB] = pc_estimate_norm_curv_qfit(B, self.FITTING.SEARCH_METHOD, self.FITTING.SEARCH_SIZE);
-                % 
-                % % Set custom structs with required fields
-                % sA.geom = A.Location;
-                % sB.geom = B.Location;
-                % if self.PARAMS.ATTRIBUTES.NORM
-                %     sA.norm = normA;
-                %     sB.norm = normB; 
-                % end
-                % if self.PARAMS.ATTRIBUTES.CURV
-                %     sA.curv = curvA;
-                %     sB.curv = curvB;
-                % end
-                % 
-                % % Compute structural similarity scores
-                % [pssim] = pointssim(sA, sB, self.PARAMS);
-                % self.simparam{i} = pssim;
+                % QUANT.VOXELIZATION = false;
+                % QUANT.TARGET_BIT_DEPTH = 9;
+                
+                % Sort geometry
+                radarPC = ptCloudRadar;
+                particlePC = pointCloud([self.particles_pc{i}]);
+
+                A = radarPC;
+                B = particlePC;
+
+                [geomA, ~] = sortrows(A.Location);
+                A = pointCloud(geomA);
+                
+                [geomB, ~] = sortrows(B.Location);
+                B = pointCloud(geomB);
+                
+                % Point fusion
+                A = pc_fuse_points(A);
+                B = pc_fuse_points(B);
+                
+                % Normals and curvatures estimation
+                [normA, curvA] = pc_estimate_norm_curv_qfit(A, self.FITTING.SEARCH_METHOD, self.FITTING.SEARCH_SIZE);
+                [normB, curvB] = pc_estimate_norm_curv_qfit(B, self.FITTING.SEARCH_METHOD, self.FITTING.SEARCH_SIZE);
+                
+                % Set custom structs with required fields
+                sA.geom = A.Location;
+                sB.geom = B.Location;
+                if self.PARAMS.ATTRIBUTES.NORM
+                    sA.norm = normA;
+                    sB.norm = normB; 
+                end
+                if self.PARAMS.ATTRIBUTES.CURV
+                    sA.curv = curvA;
+                    sB.curv = curvB;
+                end
+                
+                % Compute structural similarity scores
+                [pssim] = pointssim(sA, sB, self.PARAMS);
+                self.sim_mean_score(i,1) = mean([pssim.normBA, pssim.curvBA]);
 
             end
         end

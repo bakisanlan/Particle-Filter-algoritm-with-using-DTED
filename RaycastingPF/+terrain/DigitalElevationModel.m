@@ -12,6 +12,7 @@ classdef DigitalElevationModel < handle
         R;          % Spatial reference for the data grid A
         latitudes   % Latitudes for the data grid A
         longitudes  % Longitudes for the data grid A
+        cmap
     end
 
     methods
@@ -104,15 +105,16 @@ classdef DigitalElevationModel < handle
             [As, Rs, lats, lons] = slice(obj,lla,ll0);
             % usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
             % geoshow(flip(As),Rs,"DisplayType","surface");
-            cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
+            obj.cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
 
-            hF3 = figure; clf;
+            %hF3 = figure; clf;
             a = mesh(lons, lats, As);
             set(a,'FaceColor','flat','EdgeColor','none')
             %pbaspect([1 1 0.05]); %view(-7,31);
             axis([min(lons) max(lons) min(lats) max(lats)]);
             xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
-            colormap(hF3,cmap2gray(cmap)); colorbar('Location','westoutside');
+            ax = gca;
+            colormap(ax,cmap2gray(obj.cmap)); %colorbar('Location','westoutside');
         end
 
     end
