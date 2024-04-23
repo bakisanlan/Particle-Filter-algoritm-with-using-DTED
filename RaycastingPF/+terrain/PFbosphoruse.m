@@ -64,14 +64,14 @@ TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
 
 % Estimator settings
-hEstimator = terrain.StateEstimatorPF(200,hAircraft.Pose,500,500,0,3,Ts);
+hEstimator = terrain.StateEstimatorPF(200,hAircraft.Pose,200,200,0,3,Ts);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 %% Game Loop
 %r = rateControl(1/Ts);
 %reset(r);
 simTime = 0;
-Tf = 200;
+Tf = 10;
 
 while simTime < Tf
 

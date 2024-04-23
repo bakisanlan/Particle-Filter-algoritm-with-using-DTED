@@ -24,8 +24,8 @@ classdef AircraftBot < handle
             obj.Pose = reshape(initialPose, numel(initialPose),1);
             obj.dt   = Ts;
             obj.WithNoise = false;
-            %obj.Sigma = [5; 0.02];
-            obj.Sigma = [0; 0];
+            obj.Sigma = [5; 0.02];
+            %obj.Sigma = [0; 0];
 
         end
 

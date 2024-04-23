@@ -168,6 +168,39 @@ classdef AbstractRayCasting3D < handle
             end
         end
 
+        function scanAltimeter(obj)
+            %READALTIMETER Returns altitude above terrain from a given
+            %location in sensor frame.
+            %
+            %   Given an x-y-z location in sensor frame, it returns the
+            %   orthogonal distance to terrain in sensor frame, namely:
+            %
+            %      zs = - altitude
+            %
+    
+            % psi_s = obj.orientationLiDAR(1);
+            % 
+            % % In world frame
+            % xyz_w = terrain.AbstractRayCasting3D.rTs(obj.positionLiDAR) * ...
+            %     terrain.AbstractRayCasting3D.wRs(psi_s,true) * [0 ; 0 ; 0;1];
+
+            % % Save the sensor location and range
+            % originalPos     = obj.positionLiDAR;
+            % originalRange   = obj.rayRange;
+
+            % Move the sensor to the desired point and ray cast from there
+            %obj.positionLiDAR   = xyz_w(1:3);
+            obj.rayRange        =  obj.positionLiDAR(3);  % limits terrain area to a minimum
+            [xs,ys,zs,~,~,~]      = raycast(obj, 90, 0);
+
+            % % Restore the sensor location and range
+            % obj.positionLiDAR   = originalPos;
+            % obj.rayRange        = originalRange;
+
+            obj.ptCloud = pointCloud([xs ys zs]);
+
+        end
+
         function zs = readAltimeter(obj, location_s)
             %READALTIMETER Returns altitude above terrain from a given
             %location in sensor frame.
