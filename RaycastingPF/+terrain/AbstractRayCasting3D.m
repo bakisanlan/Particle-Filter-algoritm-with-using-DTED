@@ -63,6 +63,9 @@ classdef AbstractRayCasting3D < handle
         dtheta;
         ptCloud;
         hFigure;
+        TFRptCloudSensor
+        TFRptCloudWorld
+
     end
 
     methods
@@ -199,6 +202,48 @@ classdef AbstractRayCasting3D < handle
 
             obj.ptCloud = pointCloud([xs ys zs]);
 
+        end
+
+        function scanTFRmode(obj, flagPlot)
+            %SCANREALTERRAIN Scan the terrain.
+            %
+            %   Two types of scanning are possible. Scanning a terrain that
+            %   functions as the pre-loaded reference map terrain whose
+            %   scanning can be compared with a radar scan, or as a terrain
+            %   that functions as the simulated enviroment real terrain
+            %   emulating a real radar scan.
+            %
+            %   When used as a radar emulator scanning the simulated
+            %   enviroment terrain. It is best to apply ray casting that
+            %   accounts for uncertainities encountered by a real radar
+            %   scan.
+
+            if nargin == 1
+                flagPlot = false;
+            end
+
+            [x1,y1,z1,xw1,yw1,zw1] = obj.sweep_line(-18,32, 0);
+            % [x2,y2,z2,xw2,yw2,zw2] = obj.sweep_line(30,90, 0);
+            % [x3,y3,z3,xw3,yw3,zw3] = obj.sweep_line(30,90, -45);
+            % [x4,y4,z4,xw4,yw4,zw4] = obj.sweep_arc(170, 60);
+            % [x5,y5,z5,xw5,yw5,zw5] = obj.sweep_arc(170, 40);
+            % [x6,y6,z6,xw6,yw6,zw6] = obj.sweep_arc(170, 30);
+
+            % X = [x1;x2;x3;x4;x5;x6];
+            % Y = [y1;y2;y3;y4;y5;y6];
+            % Z = [z1;z2;z3;z4;z5;z6];
+
+            obj.TFRptCloudSensor = pointCloud([x1 y1 z1]);
+            obj.TFRptCloudWorld  = pointCloud([xw1 yw1 zw1]);
+
+
+            if flagPlot && ~isempty(obj.hFigure)
+                Xw = [xw1;xw2;xw3;xw4;xw5;xw6];
+                Yw = [yw1;yw2;yw3;yw4;yw5;yw6];
+                Zw = [zw1;zw2;zw3;zw4;zw5;zw6];
+                figure(obj.hFigure);
+                plot3(Xw,Yw,Zw,'r.','MarkerSize',10,'DisplayName','LiDAR Scans');
+            end
         end
 
         function zs = readAltimeter(obj, location_s)
