@@ -34,7 +34,7 @@ modelF = 1;
 %% Aircraft Settings
 x0      = 1500;
 y0      = 1500;
-z0      = 500;
+z0      = 300;
 psi0    = 60*pi/180;
 
 Ts      = 2;
@@ -93,6 +93,7 @@ end
 
 figure(1)
 plot3(TFRptCloudWorld(:,1),TFRptCloudWorld(:,2),TFRptCloudWorld(:,3),'*')
+daspect([2 1 1])
 
 figure(2)
 %distance = 

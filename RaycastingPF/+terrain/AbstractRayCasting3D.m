@@ -222,7 +222,7 @@ classdef AbstractRayCasting3D < handle
                 flagPlot = false;
             end
 
-            [x1,y1,z1,xw1,yw1,zw1] = obj.sweep_line(-18,32, 0);
+            [x1,y1,z1,xw1,yw1,zw1] = obj.sweep_line(-8,32, 0);
             % [x2,y2,z2,xw2,yw2,zw2] = obj.sweep_line(30,90, 0);
             % [x3,y3,z3,xw3,yw3,zw3] = obj.sweep_line(30,90, -45);
             % [x4,y4,z4,xw4,yw4,zw4] = obj.sweep_arc(170, 60);

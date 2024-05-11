@@ -103,8 +103,8 @@ classdef StateEstimatorPF < handle
                 [meann,var] = self.estimate();
                 param_estimate = [meann,var];
 
-                % resetting current batch
-                self.batch_n = 1;
+                % % resetting current batch
+                % self.batch_n = 1;
             else 
                 % counting number of measurement in batch
                 self.batch_n = self.batch_n + 1;
@@ -206,6 +206,9 @@ classdef StateEstimatorPF < handle
 
             % find means of batch elements for finding final MAE
             self.MAE_particles = mean(self.MAE_nthBatch_ithPart,2);
+            
+            % drop first column of batch array after each iteration
+            self.MAE_nthBatch_ithPart(:,1) = [];
 
             %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
             self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.MAE_particles./self.alt_std).^2);
@@ -300,14 +303,27 @@ classdef StateEstimatorPF < handle
                 % self.batch_Zr{self.batch_n} = self.Zr;
                 
                 %self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
-                if ~isempty(self.Zr)
-                    self.MAE_nthBatch_ithPart(i,self.batch_n) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                if (self.batch_n ~= 10)
+                    if ~isempty(self.Zr)
+                        self.MAE_nthBatch_ithPart(i,self.batch_n) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                    else
+                        self.MAE_nthBatch_ithPart(i,self.batch_n) = 999;
+                    end
                 else
-                    self.MAE_nthBatch_ithPart(i,self.batch_n) = 999;
+                    % drop first column of batch in every iteration
+                    %self.MAE_nthBatch_ithPart(:,1) = [];
+                    if ~isempty(self.Zr)
+                        % add new MAE to end of batch array
+                        self.MAE_nthBatch_ithPart(i,self.batch_size) =  mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                    else
+                        self.MAE_nthBatch_ithPart(i,self.batch_size) = 999;
+                    end
                 end
 
-                idx_err = isnan(self.mean_sqrd_error);
-                self.mean_sqrd_error(idx_err) = 999;
+
+                % 
+                % idx_err = isnan(self.mean_sqrd_error);
+                % self.mean_sqrd_error(idx_err) = 999;
 
                 %mean((self.elev_particles_pc{i} - self.Zr).^2)
                 %size(self.elev_particles_pc{i} - self.Zr)
