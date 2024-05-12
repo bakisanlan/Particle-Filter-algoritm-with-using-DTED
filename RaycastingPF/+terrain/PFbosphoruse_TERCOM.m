@@ -73,7 +73,7 @@ y0      = 1500;
 z0      = 500;
 psi0    = 20*pi/180;
 
-Ts      = 2;
+Ts      = 1;
 hAircraft.Pose          = [x0; y0; z0; psi0];
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
@@ -90,7 +90,7 @@ var = [];
 % Estimator settings
 iPart = 100;
 N = 200;
-range_part = 500;
+range_part = 1;
 alt_std = 3;
 raycast_flag = false;
 batch_size = 1;
@@ -104,7 +104,7 @@ hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 %r = rateControl(1/Ts);
 %reset(r);
 simTime = 0;
-Tf = 190;
+Tf = 10;
 loop_sampling = Tf/Ts;
 %topgun_traj_headdot = [diff(topgun_traj_heading) ; 0];
 % u = [topgun_traj_velocity(1:length(topgun_traj_velocity)/loop_sampling:end)...
@@ -112,7 +112,7 @@ loop_sampling = Tf/Ts;
 u = [100; 2*pi/500];
 
 i = 1;
-Tf = 200;
+Tf = 100;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 

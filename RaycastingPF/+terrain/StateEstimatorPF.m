@@ -54,7 +54,9 @@ classdef StateEstimatorPF < handle
             self.dt = dt;
             self.batch_size = batch_size;
             self.batch_n = 1;
+            %self.process_std = [5 0.02];
             self.process_std = [5 0.02];
+
 
             % Create uniformly distributed particles around aircraft with
             % the span range
@@ -62,27 +64,27 @@ classdef StateEstimatorPF < handle
             self.particles = self.create_uniform_particles(self.N,init_pos,[self.x_span ; self.y_span]);
             self.weights = ones(self.N,1)/self.N;
 
-            % Configurations of similarity
-            PARAMS.ATTRIBUTES.GEOM = true;
-            PARAMS.ATTRIBUTES.NORM = true;
-            PARAMS.ATTRIBUTES.CURV = true;
-            PARAMS.ATTRIBUTES.COLOR = false;
-            
-            PARAMS.ESTIMATOR_TYPE = {'VAR'};
-            PARAMS.POOLING_TYPE = {'Mean'};
-            PARAMS.NEIGHBORHOOD_SIZE = 12;
-            PARAMS.CONST = eps(1);
-            PARAMS.REF = 0;
-            self.PARAMS = PARAMS;
-            
-            FITTING.SEARCH_METHOD = 'knn';
-            knn = 12;
-            FITTING.SEARCH_SIZE = knn;
-            self.FITTING = FITTING;
-                       
-            QUANT.VOXELIZATION = false;
-            QUANT.TARGET_BIT_DEPTH = 9;
-            self.QUANT = QUANT;
+            % % Configurations of similarity
+            % PARAMS.ATTRIBUTES.GEOM = true;
+            % PARAMS.ATTRIBUTES.NORM = true;
+            % PARAMS.ATTRIBUTES.CURV = true;
+            % PARAMS.ATTRIBUTES.COLOR = false;
+            % 
+            % PARAMS.ESTIMATOR_TYPE = {'VAR'};
+            % PARAMS.POOLING_TYPE = {'Mean'};
+            % PARAMS.NEIGHBORHOOD_SIZE = 12;
+            % PARAMS.CONST = eps(1);
+            % PARAMS.REF = 0;
+            % self.PARAMS = PARAMS;
+            % 
+            % FITTING.SEARCH_METHOD = 'knn';
+            % knn = 12;
+            % FITTING.SEARCH_SIZE = knn;
+            % self.FITTING = FITTING;
+            % 
+            % QUANT.VOXELIZATION = false;
+            % QUANT.TARGET_BIT_DEPTH = 9;
+            % self.QUANT = QUANT;
         end
 
         function param_estimate = getEstimate(self,prior,u,ptCloudRadar,flagRAYCAST, modelF)
@@ -109,7 +111,14 @@ classdef StateEstimatorPF < handle
                 % counting number of measurement in batch
                 self.batch_n = self.batch_n + 1;
 
-                param_estimate = [];
+                %param_estimate = [];
+
+                % update weight based on MAE
+                self.update_weights(ptCloudRadar,flagRAYCAST)
+
+                % store mean and var value
+                [meann,var] = self.estimate();
+                param_estimate = [meann,var];
             end
 
         end
@@ -208,7 +217,10 @@ classdef StateEstimatorPF < handle
             self.MAE_particles = mean(self.MAE_nthBatch_ithPart,2);
             
             % drop first column of batch array after each iteration
-            self.MAE_nthBatch_ithPart(:,1) = [];
+
+            if self.batch_n == self.batch_size
+                self.MAE_nthBatch_ithPart(:,1) = [];
+            end
 
             %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
             self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.MAE_particles./self.alt_std).^2);
@@ -303,7 +315,7 @@ classdef StateEstimatorPF < handle
                 % self.batch_Zr{self.batch_n} = self.Zr;
                 
                 %self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
-                if (self.batch_n ~= 10)
+                if (self.batch_n ~= self.batch_size)
                     if ~isempty(self.Zr)
                         self.MAE_nthBatch_ithPart(i,self.batch_n) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
                     else
@@ -319,7 +331,8 @@ classdef StateEstimatorPF < handle
                         self.MAE_nthBatch_ithPart(i,self.batch_size) = 999;
                     end
                 end
-
+                self.particles_pc{i} = [particle_pc Z];
+                self.radar_Z{i} = self.Zr;
 
                 % 
                 % idx_err = isnan(self.mean_sqrd_error);
@@ -330,17 +343,15 @@ classdef StateEstimatorPF < handle
                 %self.elev_particles_pc{i}
                 %self.corr(i,1) = -(self.Zr'*Z) / sqrt((self.Zr'*Z)*(Z'*Z));
 
-                % lineer similarity corr
-                if length(Z) > 1
-                    cor_matrix = corrcoef(self.Zr,Z); 
-                    self.corr(i,1) = cor_matrix(1,2);
-                end
+                % % lineer similarity corr
+                % if length(Z) > 1
+                %     cor_matrix = corrcoef(self.Zr,Z); 
+                %     self.corr(i,1) = cor_matrix(1,2);
+                % end
 
                 % cosine similarity corr
                 %self.corr(i,1) = (self.Zr'*Z) / sqrt((self.Zr'*self.Zr)*(Z'*Z)); 
-                
-                self.particles_pc{i} = [particle_pc Z];
-                self.radar_Z{i} = self.Zr;
+               
 
                 % penalize the particles that have low corr coef from
                 % threshold for robustness
