@@ -30,9 +30,9 @@ classdef StateEstimatorPF < handle
         corr
         non_idx
         batch_size
-        batch_n
+        batch_n_Part
         batch_Zr
-        MAE_nthBatch_ithPart
+        MAE_Batch_Part
         MAE_particles
 
         PARAMS
@@ -53,7 +53,7 @@ classdef StateEstimatorPF < handle
             self.exp_rate = exp_rate;
             self.dt = dt;
             self.batch_size = batch_size;
-            self.batch_n = 1;
+            self.batch_n_Part = ones(self.N,1);
             %self.process_std = [5 0.02];
             self.process_std = [5 0.02];
 
@@ -96,7 +96,7 @@ classdef StateEstimatorPF < handle
             %particle w.r.t. radar Z value 
             self.find_MAE_particles(ptCloudRadar,flagRAYCAST);  % Nx81
 
-            if self.batch_n == self.batch_size
+            if self.batch_n_Part == self.batch_size
 
                 % update weight based on MAE
                 self.update_weights(ptCloudRadar,flagRAYCAST)
@@ -109,7 +109,7 @@ classdef StateEstimatorPF < handle
                 % self.batch_n = 1;
             else 
                 % counting number of measurement in batch
-                self.batch_n = self.batch_n + 1;
+                self.batch_n_Part = self.batch_n_Part + 1;
 
                 %param_estimate = [];
 
@@ -214,12 +214,11 @@ classdef StateEstimatorPF < handle
             %corr = -(self.Zr'*self.elev_particles_pc) / sqrt((self.Zr'*self.elev_particles_pc)*(self.elev_particles_pc'*self.elev_particles_pc));
 
             % find means of batch elements for finding final MAE
-            self.MAE_particles = mean(self.MAE_nthBatch_ithPart,2);
+            self.MAE_particles = mean(self.MAE_Batch_Part,2);
             
             % drop first column of batch array after each iteration
-
-            if self.batch_n == self.batch_size
-                self.MAE_nthBatch_ithPart(:,1) = [];
+            if self.batch_n_Part == self.batch_size
+                self.MAE_Batch_Part(:,1) = [];
             end
 
             %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
@@ -315,20 +314,20 @@ classdef StateEstimatorPF < handle
                 % self.batch_Zr{self.batch_n} = self.Zr;
                 
                 %self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
-                if (self.batch_n ~= self.batch_size)
+                if (self.batch_n_Part(i) ~= self.batch_size)
                     if ~isempty(self.Zr)
-                        self.MAE_nthBatch_ithPart(i,self.batch_n) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                        self.MAE_Batch_Part(i,self.batch_n_Part(i)) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
                     else
-                        self.MAE_nthBatch_ithPart(i,self.batch_n) = 999;
+                        self.MAE_Batch_Part(i,self.batch_n_Part) = 999;
                     end
                 else
                     % drop first column of batch in every iteration
                     %self.MAE_nthBatch_ithPart(:,1) = [];
                     if ~isempty(self.Zr)
                         % add new MAE to end of batch array
-                        self.MAE_nthBatch_ithPart(i,self.batch_size) =  mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                        self.MAE_Batch_Part(i,self.batch_size) =  mean(abs(self.elev_particles_pc{i} - self.Zr),1);
                     else
-                        self.MAE_nthBatch_ithPart(i,self.batch_size) = 999;
+                        self.MAE_Batch_Part(i,self.batch_size) = 999;
                     end
                 end
                 self.particles_pc{i} = [particle_pc Z];

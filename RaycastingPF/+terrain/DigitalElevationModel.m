@@ -100,7 +100,7 @@ classdef DigitalElevationModel < handle
             % geoshow(flip(obj.A),obj.R,"DisplayType","surface");
             % cmap = demcmap(obj.A,16); colormap(hF1,cmap); colorbar;
 
-            % hF2 = figure; clf;
+            hF2 = figure; clf;
             % title('Aircraft DTED Path Map')
             [As, Rs, lats, lons] = slice(obj,lla,ll0);
             % usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
