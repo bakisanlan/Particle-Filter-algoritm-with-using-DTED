@@ -93,9 +93,10 @@ N = 200;
 range_part = 500;
 alt_std = 3;
 raycast_flag = false;
-batch_size = 5;
+batch_size = 10;
 
-hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+%hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+%hEstimator = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 % hEstimator_slid_COR = terrain.StateEstimatorPFcor(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts);
@@ -113,7 +114,7 @@ loop_sampling = Tf/Ts;
 u = [100; 2*pi/500];
 
 i = 1;
-Tf = 10;
+Tf = 150;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
