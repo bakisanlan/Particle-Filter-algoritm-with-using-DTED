@@ -65,6 +65,7 @@ classdef AbstractRayCasting3D < handle
         hFigure;
         TFRptCloudSensor
         TFRptCloudWorld
+        zTERCOM
 
     end
 
@@ -194,13 +195,14 @@ classdef AbstractRayCasting3D < handle
             % Move the sensor to the desired point and ray cast from there
             %obj.positionLiDAR   = xyz_w(1:3);
             obj.rayRange        =  obj.positionLiDAR(3);  % limits terrain area to a minimum
-            [xs,ys,zs,~,~,~]      = raycast(obj, 90, 0);
+            [xs,ys,zs,~,~,zw]      = raycast(obj, 90, 0);
 
             % % Restore the sensor location and range
             % obj.positionLiDAR   = originalPos;
             % obj.rayRange        = originalRange;
 
             obj.ptCloud = pointCloud([xs ys zs]);
+            obj.zTERCOM = zw;
 
         end
 

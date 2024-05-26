@@ -14,6 +14,7 @@ classdef AircraftBot < handle
         mapHandle       % DEM map handle
         WithNoise       % Enable noise
         Sigma           % Sigma^2 is variance, a 2 by 1 vector
+        dx
     end
 
     methods
@@ -39,6 +40,9 @@ classdef AircraftBot < handle
             %    dpsi/dt    = omega;
             %
             %    u = [v; omega]
+
+            % storing old state
+            x_old = obj.Pose;
 
             if obj.WithNoise
                 w = obj.Sigma.*(rand(2,1)-0.5)*2;
@@ -71,6 +75,9 @@ classdef AircraftBot < handle
                 obj.Pose(1:3) = obj.Pose(1:3) + dPose_dt * obj.dt;
                 obj.Pose(4) = u_noise(2);
             end
+
+            % storing delta x for TERCOM grid movement
+            obj.dx = obj.Pose - x_old;
 
 
         end
