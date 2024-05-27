@@ -73,7 +73,7 @@ y0      = 1500;
 z0      = 500;
 psi0    = 20*pi/180;
 
-Ts      = 0.01;
+Ts      = 0.1;
 hAircraft.Pose          = [x0; y0; z0; psi0];
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
@@ -96,7 +96,7 @@ raycast_flag = false;
 batch_size = 10;
 
 %hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
-%hEstimator = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+hEstimator = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 % hEstimator_slid_COR = terrain.StateEstimatorPFcor(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts);
@@ -114,7 +114,7 @@ loop_sampling = Tf/Ts;
 u = [100; 2*pi/500];
 
 i = 1;
-Tf = 150;
+Tf = 100;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
@@ -263,8 +263,8 @@ disp(['Estimation error of PF ',num2str(mean_error),' meters mean and ',num2str(
 % ll = [36.2161 -112.424];
 ll = [41.01 29.01];
 ru = [41.025 29.03];
-hDEM.visualizeDTED(ll,ru); hold on;
-%hDEM.visualizeDTED(left_lower,right_upper); hold on;
+%hDEM.visualizeDTED(ll,ru); hold on;
+hDEM.visualizeDTED(left_lower,right_upper); hold on;
 view(0,90)
 
 particles_lla = ned2lla([particles_history(:,2) particles_history(:,1) -z0*ones(length(particles_history(:,1)),1)],[left_lower 0],"flat");

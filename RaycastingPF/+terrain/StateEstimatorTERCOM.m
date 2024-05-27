@@ -493,7 +493,7 @@ classdef StateEstimatorTERCOM < handle
 
                 self.particles = [self.particles(indexes,:) ; rand_partc];
             else
-                disp(indexes)
+                disp('Resampled...')
                 self.particles = self.particles(indexes,:);
             end
 
