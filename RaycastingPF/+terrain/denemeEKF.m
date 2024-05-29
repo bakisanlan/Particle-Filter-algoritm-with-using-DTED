@@ -85,7 +85,7 @@ TraceEstimatedPose = [];
 var = [];
 
 % defining inputs
-u = [100; 0];
+u = [100; 2*pi/500];
 
 % Defining EKF matrix
 % Initilize P state covariance matrix
@@ -104,7 +104,7 @@ R = 3^2;
 
 % Game loop
 simTime = 0;
-Tf =100;
+Tf =200;
 c = 1;
 
 while simTime < Tf
@@ -123,70 +123,121 @@ while simTime < Tf
     tercom_grid(:,3) = interp2(DTED{1},DTED{2},DTED{3},tercom_grid(:,1),tercom_grid(:,2));
 
     % Batch update
-    if batch_n == batch_size+1
-        batch_tercom_grid_z_error(:,1) = [];
-        batch_tercom_grid_z_error(:,batch_n-1) = abs(tercom_grid(:,3) - hRadar.zTERCOM);
+    % if batch_n == batch_size+1
+    %     batch_tercom_grid_z_error(:,1) = [];
+    %     batch_tercom_grid_z_error(:,batch_n-1) = abs(tercom_grid(:,3) - hRadar.zTERCOM);
+    %
+    %     [lowest_MAD , idx] = min(mean(batch_tercom_grid_z_error(:,:),2));
+    %     CR_DR = tercom_grid(idx,1:2); % [cross range, down range] = TERCOM grid best match position
+    %     %idx
+    %
+    %     % Slope calculation at CR,DR pos
+    %     %TERCOM_grid_surf = surf(x,y,reshape(tercom_grid(:,3),[length(y) , length(x)]));
+    %     TERCOM_z_grid = reshape(tercom_grid(:,3),[length(y) , length(x)]);
+    %     xi = fix(idx/length(y)) + 1;
+    %     yi = rem(idx,length(y));
+    %     if yi == 0
+    %         yi = length(y);
+    %     end
+    %
+    %     if xi > length(x)
+    %         xi = length(x);
+    %     end
+    %
+    %     dCR = (1/(2*x(2)-x(1))) * (TERCOM_z_grid(yi,min(length(x),xi+1)) - TERCOM_z_grid(yi,max(1,xi-1)));
+    %     dDR = (1/(2*y(2)-y(1))) * (TERCOM_z_grid(min(length(y),yi+1),xi) - TERCOM_z_grid(max(1,yi-1),xi));
+    %
+    %     % local slope = linearized measurement function of kalman filter H
+    %     H = [dCR dDR 0 0];
+    %     z_pred = tercom_grid(idx,3);
+    %
+    %     % F matrix
+    %     % Jocabian of state transition matrix F
+    %     F = [1 0 0  -u(1)*sin(hAircraft.Pose(4))*Ts ;
+    %          0 1 0   u(1)*cos(hAircraft.Pose(4))*Ts ;
+    %          0 0 1   0                              ;
+    %          0 0 0   1                              ];
+    %
+    %     % Kalman equations
+    %     P = F * P * F.' + Q;
+    %     residual = lowest_MAD;
+    %     K = P * H.' * inv(H * P * H.' + R);
+    %     P = (eye(length(H)) - K * H) * P;%\\ * inv(eye(length(H)));% - K * H).' + K * R * K.';
+    %     x_est = [CR_DR 0 0].' + K*residual;
+    %     x_est = x_est(1:2);
+    %     TracePose = [TracePose ; hAircraft.Pose(1:2).'];
+    %     TraceEstimatedPose = [TraceEstimatedPose ; x_est.'];
+    %     %TraceEstimatedPose = [TraceEstimatedPose ; CR_DR];
+    %
+    %
+    %
+    %     % % Game plot
+    %     % fig = figure(1); hold on;
+    %     % plot(TracePose(c,1), TracePose(c,2),'g*');
+    %     % plot(TraceEstimatedPose(c,1), TraceEstimatedPose(c,2),'r+');
+    %     % plot(tercom_grid(:,1), tercom_grid(:,2),'k.',MarkerSize=1);
+    %     % xlim([1500 12000])
+    %     % ylim([1500 5000])
+    %     % pause(0.1)
+    %     % cla(gca)
+    %     %
+    %     % c = c +1;
+    % else
+    %     batch_tercom_grid_z_error(:,batch_n) = abs(tercom_grid(:,3) - hRadar.zTERCOM);
+    %     batch_n = batch_n + 1;
+    % end
 
-        [lowest_MAD , idx] = min(mean(batch_tercom_grid_z_error(:,:),2));
-        CR_DR = tercom_grid(idx,1:2); % [cross range, down range] = TERCOM grid best match position
-        idx
+    % F matrix
+    % Jocabian of state transition matrix F
+    F = [1 0 0  -u(1)*sin(hAircraft.Pose(4))*Ts ;
+        0 1 0   u(1)*cos(hAircraft.Pose(4))*Ts ;
+        0 0 1   0                              ;
+        0 0 0   1                              ];
 
-        % Slope calculation at CR,DR pos
-        %TERCOM_grid_surf = surf(x,y,reshape(tercom_grid(:,3),[length(y) , length(x)]));
-        TERCOM_z_grid = reshape(tercom_grid(:,3),[length(y) , length(x)]);
-        xi = fix(idx/length(y)) + 1;
-        yi = rem(idx,length(y));
-        if yi == 0
-            yi = length(y);
-        end
+    % Kalman equations
+    P = F * P * F.' + Q;
+    z = hRadar.zTERCOM;
+    zm = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1),hAircraftINS.Pose(2));
+    residual = z - zm;
 
-        if xi > length(x)
-            xi = length(x);
-        end
+    % Linearizing h function
+    dx = 10;
+    dy = 10;
+    zmx_minus = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1) - dx,hAircraftINS.Pose(2));
+    zmx_plus =  interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1) + dx,hAircraftINS.Pose(2));
+    zmy_minus = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1)     ,hAircraftINS.Pose(2) - dy);
+    zmy_plus =  interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1)     ,hAircraftINS.Pose(2) + dy);
 
-        dCR = (1/(2*x(2)-x(1))) * (TERCOM_z_grid(yi,min(length(x),xi+1)) - TERCOM_z_grid(yi,max(1,xi-1)));
-        dDR = (1/(2*y(2)-y(1))) * (TERCOM_z_grid(min(length(y),yi+1),xi) - TERCOM_z_grid(max(1,yi-1),xi));
+    x_slope = (1/(2*dx)) * (zmx_plus - zmx_minus);
+    y_slope = (1/(2*dy)) * (zmy_plus - zmy_minus);
 
-        % local slope = linearized measurement function of kalman filter H
-        H = [dCR dDR 0 0];
-        z_pred = tercom_grid(idx,3);
+    H = [-x_slope -y_slope 0 0];
 
-        % F matrix
-        % Jocabian of state transition matrix F
-        F = [1 0 0  -u(1)*sin(hAircraft.Pose(4))*Ts ;
-             0 1 0   u(1)*cos(hAircraft.Pose(4))*Ts ;
-             0 0 1   0                              ;
-             0 0 0   1                              ];
+    K = P * H.' * inv(H * P * H.' + R);
+    P = (eye(length(H)) - K * H) * P;%\\ * inv(eye(length(H)));% - K * H).' + K * R * K.';
 
-        % Kalman equations
-        P = F * P * F.' + Q;
-        residual = lowest_MAD;
-        K = P * H.' * inv(H * P * H.' + R);
-        P = (eye(length(H)) - K * H) * P;% * inv(eye(length(H)));% - K * H).' + K * R * K.';
-        x_est = [CR_DR 0 0].' + K*residual;
-        x_est = x_est(1:2);
-        TracePose = [TracePose ; hAircraft.Pose(1:2).'];
-%        TraceEstimatedPose = [TraceEstimatedPose ; x_est.'];
-        TraceEstimatedPose = [TraceEstimatedPose ; CR_DR];
+    x_est = hAircraftINS.Pose + K*residual;
+    x_est = x_est(1:2);
 
+    TracePose = [TracePose ; hAircraft.Pose(1:2).'];
+    TraceEstimatedPose = [TraceEstimatedPose ; x_est.'];
 
-
-        % Game plot
-        fig = figure(1); hold on;
-        plot(TracePose(c,1), TracePose(c,2),'g*');
-        plot(TraceEstimatedPose(c,1), TraceEstimatedPose(c,2),'r+');
-        plot(tercom_grid(:,1), tercom_grid(:,2),'k.',MarkerSize=1);
-        xlim([1500 12000])
-        ylim([1500 5000])
-        pause(0.1)
-        cla(gca)
-
-        c = c +1;
-    else
-        batch_tercom_grid_z_error(:,batch_n) = abs(tercom_grid(:,3) - hRadar.zTERCOM);
-        batch_n = batch_n + 1;
-    end
 
     simTime = simTime + Ts;
 
+
+
 end
+
+%%
+
+plot(TracePose(:,1), TracePose(:,2),'g*');
+hold on
+plot(TraceEstimatedPose(:,1), TraceEstimatedPose(:,2),'r+');
+%plot(tercom_grid(:,1), tercom_grid(:,2),'k.',MarkerSize=1);
+xlim([1500 12000])
+ylim([1500 5000])
+xlabel('east(m)')
+ylabel('north(m)')
+title('Extended Kalman Filter TERCOM')
+legend('True Position','Estimation Position')

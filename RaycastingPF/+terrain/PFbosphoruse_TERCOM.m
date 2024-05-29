@@ -73,7 +73,7 @@ y0      = 1500;
 z0      = 500;
 psi0    = 20*pi/180;
 
-Ts      = 0.1;
+Ts      = 0.5;
 hAircraft.Pose          = [x0; y0; z0; psi0];
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
@@ -114,7 +114,7 @@ loop_sampling = Tf/Ts;
 u = [100; 2*pi/500];
 
 i = 1;
-Tf = 100;
+Tf = 180;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
@@ -282,8 +282,8 @@ particle_pt_lla =  ned2lla([particle_pt_world(:,2) particle_pt_world(:,1) -parti
 % particle_pt_lla_ray = particle_pt_lla_ray(1,:);
 % particle_pt_lla_slid = particle_pt_lla_slid(1,:);
 
-%p1 = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'b.');
-p1 = plot3(particle_lla(:,2),particle_lla(:,1),particle_lla(:,3),'b.');
+p1 = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'b.');
+%p1 = plot3(particle_lla(:,2),particle_lla(:,1),particle_lla(:,3),'b.');
 %p2 = plot3(particles_lla_slid(:,2),particles_lla_slid(:,1),particles_lla_slid(:,3),'b.');
 p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g.');
 %p4 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
