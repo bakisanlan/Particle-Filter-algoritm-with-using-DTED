@@ -18,6 +18,7 @@ hRadar.dtheta   = 10;
 hRadar.dpsi     = 10;
 hRadar.rayRange = 1500;
 
+
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
@@ -44,6 +45,11 @@ end
 % hLocationPoint.MarkerSize = 10;
 % hLocationPoint.MarkerFaceColor = "cyan";
 
+% Reference map scanner settings
+hReferenceMapScanner.dtheta = hRadar.dtheta;
+hReferenceMapScanner.dpsi = hRadar.dpsi;
+hReferenceMapScanner.rayRange = hRadar.rayRange;
+hReferenceMapScanner.DTED = hRadar.DTED;
 
 % Initial Condition of UAV
 x0      = 1500;
@@ -89,7 +95,7 @@ u = [100; 2*pi/500];
 
 % Defining EKF matrix
 % Initilize P state covariance matrix
-P = diag([0 0 0 deg2rad(1^2)]);
+P = diag([1000 1000 0 deg2rad(1^2)]);
 
 % Create Q Process covariance matrix
 Q = diag([(hAircraft.Sigma).^2 ; 0 ; 0]);
@@ -109,6 +115,7 @@ c = 1;
 
 while simTime < Tf
 
+    tic
 
     hAircraft.move(u,modelF);
     hAircraftINS.move(u,modelF);
@@ -117,6 +124,10 @@ while simTime < Tf
     hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
     hRadar.scanAltimeter;
+
+    % Reference scanner oriantation update
+    hReferenceMapScanner.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
+
 
     % TERCOM grid update
     tercom_grid(:,1:2) = tercom_grid(:,1:2) + hAircraft.dx(1:2).';
@@ -203,10 +214,30 @@ while simTime < Tf
     % Linearizing h function
     dx = 10;
     dy = 10;
-    zmx_minus = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1) - dx,hAircraftINS.Pose(2));
-    zmx_plus =  interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1) + dx,hAircraftINS.Pose(2));
-    zmy_minus = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1)     ,hAircraftINS.Pose(2) - dy);
-    zmy_plus =  interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1)     ,hAircraftINS.Pose(2) + dy);
+    org_INS_location = [hAircraftINS.Pose(1) , hAircraftINS.Pose(2) , hAircraftINS.Pose(3)];
+    
+
+    % zmx_minus = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1) - dx,hAircraftINS.Pose(2));
+    % zmx_plus =  interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1) + dx,hAircraftINS.Pose(2));
+    % zmy_minus = interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1)     ,hAircraftINS.Pose(2) - dy);
+    % zmy_plus =  interp2(DTED{1},DTED{2},DTED{3},hAircraftINS.Pose(1)     ,hAircraftINS.Pose(2) + dy);
+
+    hReferenceMapScanner.positionLiDAR = [org_INS_location(1) - dx ; org_INS_location(2) ; org_INS_location(3)];
+    hReferenceMapScanner.scanAltimeter;
+    zmx_minus = hReferenceMapScanner.zTERCOM;
+
+    hReferenceMapScanner.positionLiDAR = [org_INS_location(1) + dx ; org_INS_location(2) ; org_INS_location(3)];
+    hReferenceMapScanner.scanAltimeter;
+    zmx_plus = hReferenceMapScanner.zTERCOM;
+
+    hReferenceMapScanner.positionLiDAR = [org_INS_location(1)      ; org_INS_location(2) - dy ; org_INS_location(3)];
+    hReferenceMapScanner.scanAltimeter;
+    zmy_minus = hReferenceMapScanner.zTERCOM;
+
+    hReferenceMapScanner.positionLiDAR = [org_INS_location(1)      ; org_INS_location(2) + dy ; org_INS_location(3)];
+    hReferenceMapScanner.scanAltimeter;
+    zmy_plus = hReferenceMapScanner.zTERCOM;
+
 
     x_slope = (1/(2*dx)) * (zmx_plus - zmx_minus);
     y_slope = (1/(2*dy)) * (zmy_plus - zmy_minus);
@@ -224,20 +255,46 @@ while simTime < Tf
 
 
     simTime = simTime + Ts;
-
-
+    toc
 
 end
 
 %%
 
-plot(TracePose(:,1), TracePose(:,2),'g*');
-hold on
-plot(TraceEstimatedPose(:,1), TraceEstimatedPose(:,2),'r+');
-%plot(tercom_grid(:,1), tercom_grid(:,2),'k.',MarkerSize=1);
-xlim([1500 12000])
-ylim([1500 5000])
-xlabel('east(m)')
-ylabel('north(m)')
-title('Extended Kalman Filter TERCOM')
-legend('True Position','Estimation Position')
+% plot(TracePose(:,1), TracePose(:,2),'g*');
+% hold on
+% plot(TraceEstimatedPose(:,1), TraceEstimatedPose(:,2),'r+');
+% %plot(tercom_grid(:,1), tercom_grid(:,2),'k.',MarkerSize=1);
+% xlim([1500 12000])
+% ylim([1500 5000])
+% xlabel('east(m)')
+% ylabel('north(m)')
+% title('Extended Kalman Filter TERCOM')
+% legend('True Position','Estimation Position')
+
+valid_index = ~isnan(TraceEstimatedPose);
+%TracePose = TracePose(1:2,:);
+diff = TracePose(:,1:2) - TraceEstimatedPose;
+
+mean_error = mean(sqrt(diff(:,1).^2 + diff(:,2).^2));
+disp(['Estimation error of PF ',num2str(mean_error),' meters mean and ',num2str(norm([P(1,1) P(2,2)])),' std'])
+
+
+ll = [41 29];
+ru = [41.16 29.11];
+%hDEM.visualizeDTED(ll,ru); hold on;
+hDEM.visualizeDTED(left_lower,right_upper); hold on;
+
+daspect([1 1 1])
+view(0,90)
+xlim([ll(2) ru(2)])
+ylim([ll(1) ru(1)])
+
+TracePose_lla = ned2lla([TracePose(:,2) TracePose(:,1) -z0*ones(length(TracePose(:,1)),1)],[left_lower 0],"flat");
+TraceEstimatedPose_lla = ned2lla([TraceEstimatedPose(:,2) TraceEstimatedPose(:,1) -z0*ones(length(TraceEstimatedPose(:,1)),1)],[left_lower 0],"flat");
+
+p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g.');
+p4 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
+
+legend({'DTED Mesh','True Position','EKF Estimation'},Location="best")
+

@@ -93,7 +93,8 @@ end
 
 figure(1)
 plot3(TFRptCloudWorld(:,1),TFRptCloudWorld(:,2),TFRptCloudWorld(:,3),'*')
-daspect([2 1 1])
+zlim([0 500])
+daspect([1 1 0.2])
 
 figure(2)
 %distance = 

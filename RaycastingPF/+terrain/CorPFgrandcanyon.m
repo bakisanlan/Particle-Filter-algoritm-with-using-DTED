@@ -83,7 +83,8 @@ N = 100;
 range_part = 500;
 alt_std = 10;
 raycast_flag = false;
-hEstimator_slid_PW = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts);
+batch_n = 1;
+hEstimator_slid_PW = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_n);
 hEstimator_slid_PW.hReferenceMapScanner = hReferenceMapScanner;
 
 hEstimator_slid_COR = terrain.StateEstimatorPFcor(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts);

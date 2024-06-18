@@ -248,10 +248,12 @@ TracePose = TracePose(1:2,:);
 diff = reshape(TracePose(logical([[0; 0] valid_index])),2,[]) - reshape(TraceEstimatedPose(valid_index),2,[]);
 %diff_slid = reshape(TracePose(logical([[0; 0] valid_index_slid])),2,[]) - reshape(TraceEstimatedPose_slid(valid_index_slid),2,[]);
 
-mean_error = mean(sqrt(diff(1,:).^2 + diff(2,:).^2));
+errors = sqrt(diff(1,:).^2 + diff(2,:).^2);
+mean_error = mean(errors);
 %mean_error_slid = mean(sqrt(diff_slid(1,:).^2 + diff_slid(2,:).^2));
 
-mean_std = mean(sqrt(var));
+%mean_std = mean(sqrt(var));
+mean_std = sqrt(sum((errors - mean_error).^2)/N);
 %mean_std_slid = mean(sqrt(var_slid));
 
 disp(['Estimation error of PF ',num2str(mean_error),' meters mean and ',num2str(mean_std),' std'])
@@ -261,10 +263,10 @@ disp(['Estimation error of PF ',num2str(mean_error),' meters mean and ',num2str(
 % ll = [36.2083 -112.351];
 % ru = [36.2369 -112.405];  nan location
 % ll = [36.2161 -112.424];
-ll = [41.01 29.01];
-ru = [41.025 29.03];
-%hDEM.visualizeDTED(ll,ru); hold on;
-hDEM.visualizeDTED(left_lower,right_upper); hold on;
+ll = [41 29];
+ru = [41.16 29.11];
+hDEM.visualizeDTED(ll,ru); hold on;
+%hDEM.visualizeDTED(left_lower,right_upper); hold on;
 view(0,90)
 
 particles_lla = ned2lla([particles_history(:,2) particles_history(:,1) -z0*ones(length(particles_history(:,1)),1)],[left_lower 0],"flat");
