@@ -62,9 +62,11 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
 
             [xw,yw,zw] = deal(nan); [xs,ys,zs] = deal(nan);
             psi_s = obj.orientationLiDAR(1);
+            phi_s = obj.orientationLiDAR(3);
 
             r0 = obj.positionLiDAR;
-            D = terrain.AbstractRayCasting3D.wRs(psi_s)*...
+            D = terrain.AbstractRayCasting3D.wRsi(psi_s)*...
+                terrain.AbstractRayCasting3D.siRs(phi_s)*... %? transpose
                 terrain.AbstractRayCasting3D.sRi1(psi_r)*...
                 terrain.AbstractRayCasting3D.i1Rr(theta)* [1;0;0];
 
@@ -76,7 +78,7 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
             Z = obj.DTED{3}(iy,ix);
 
             % Get the single square mesh orthogonally below if THETA = 90;
-            if theta == 90
+            if theta == 90 && ~obj.flagScanAltimeter
                 idx_x = find(X > r0(1),1);
                 idx_y = find(Y > r0(2),1);
                 if isempty(idx_x) || isempty(idx_y) || (idx_x == 1) || (idx_y == 1)
@@ -123,8 +125,9 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
                                 yw = V0(2) + u*E1(2) + v*E2(2);
                                 zw = V0(3) + u*E1(3) + v*E2(3);
                                 % In sensor frame
-                                xyz_s = transpose(terrain.AbstractRayCasting3D.wRs(psi_s,true)) * ...
-                                    terrain.AbstractRayCasting3D.rTs(-obj.positionLiDAR) * [xw;yw;zw;1];
+                                xyz_s = transpose(terrain.AbstractRayCasting3D.siRs(phi_s,true)) * ...
+                                        transpose(terrain.AbstractRayCasting3D.wRsi(psi_s,true)) * ...
+                                        terrain.AbstractRayCasting3D.rTs(-obj.positionLiDAR) * [xw;yw;zw;1];
                                 xs = xyz_s(1); ys =  xyz_s(2); zs =  xyz_s(3);
                                 return;
                             end

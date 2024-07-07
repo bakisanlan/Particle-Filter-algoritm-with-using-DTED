@@ -115,6 +115,7 @@ classdef DigitalElevationModel < handle
             xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
             ax = gca;
             colormap(ax,cmap2gray(obj.cmap)); %colorbar('Location','westoutside');
+            %daspect([1 1 1]);
         end
 
     end

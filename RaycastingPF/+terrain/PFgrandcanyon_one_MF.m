@@ -81,7 +81,8 @@ N = 100;
 range_part = 500;
 alt_std = 5;
 raycast_flag = false;
-hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts);
+batch_size = 1;
+hEstimator = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 % hEstimator_slid_COR = terrain.StateEstimatorPFcor(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts);
@@ -142,12 +143,15 @@ while simTime < Tf
     % particle_pt_sensor_slid = hEstimator_slid_COR.particles_pc{iPart};
     % particle_pt_world_slid = zeros(size(particle_pt_sensor_slid));
 
+
     sTOw_radar = terrain.AbstractRayCasting3D.rTs(hRadar.positionLiDAR) * ...
-                     terrain.AbstractRayCasting3D.wRs(hRadar.orientationLiDAR(1),true);
+                 terrain.AbstractRayCasting3D.wRsi(hRadar.orientationLiDAR(1),true) * ...
+                 terrain.AbstractRayCasting3D.siRs(hRadar.orientationLiDAR(3),true);
+                    
 
     sTOw_particle = terrain.AbstractRayCasting3D.rTs(hEstimator.particles(iPart,1:3)') * ...
-                 terrain.AbstractRayCasting3D.wRs(hRadar.orientationLiDAR(1),true);
-
+                 terrain.AbstractRayCasting3D.wRsi(hRadar.orientationLiDAR(1),true) * ...
+                 terrain.AbstractRayCasting3D.siRs(hRadar.orientationLiDAR(3),true);
     % sTOw_particle_slid = terrain.AbstractRayCasting3D.rTs(hEstimator_slid_COR.particles(iPart,1:3)') * ...
     %          terrain.AbstractRayCasting3D.wRs(hRadar.orientationLiDAR(1),true);
 
@@ -194,7 +198,7 @@ while simTime < Tf
     i = i+1;
 
     %disp([hEstimator_ray.mean_sqrd_error(iPart) ,hEstimator_slid.mean_sqrd_error(iPart) ]);
-    disp(['PF Point Cloud point-wise averaged error: ',num2str(mean(hEstimator.mean_sqrd_error))])
+    %disp(['PF Point Cloud point-wise averaged error: ',num2str(mean(hEstimator.mean_sqrd_error))])
     %disp(['PF-Slid PC averaged error: ',num2str(mean(hEstimator_slid_COR.mean_sqrd_error))])
 
     %disp([hEstimator_ray.weights(iPart) hEstimator_slid.weights(iPart) ]);

@@ -2,7 +2,7 @@
 %%
 clc;clear;
 load('cor_test_GC_lowalt_init.mat')
-load('')
+%load('')
 %%
 fig = figure(1);
 ray_part_dist = sqrt((TracePose(1,2)-ray_particles_pos(:,1)).^2 + ...
@@ -28,30 +28,30 @@ for i=1:200
 end
 
 %%
-% subplot(2,2,1)
-% plot3(ray_cor, -ray_mse,ray_part_dist,'.')
-% title('cor-mse-dist')
-% xlabel('cor')
-% ylabel('-mse')
-% zlabel('dist')
-% 
-% subplot(2,2,2)
-% plot(ray_cor, -ray_mse,'.')
-% title('cor-mse')
-% xlabel('cor')
-% ylabel('-mse')
-% 
-% subplot(2,2,3)
-% plot(ray_cor, ray_part_dist,'.')
-% title('cor-dist')
-% xlabel('cor')
-% ylabel('dist')
-% 
-% subplot(2,2,4)
-% plot(-ray_mse, ray_part_dist,'.')
-% title('mse-dist')
-% xlabel('-mse')
-% ylabel('dist')
+subplot(2,2,1)
+plot3(ray_cor, -ray_mse,ray_part_dist,'.')
+title('cor-mse-dist')
+xlabel('cor')
+ylabel('-mse')
+zlabel('dist')
+
+subplot(2,2,2)
+plot(ray_cor, -ray_mse,'.')
+title('cor-mse')
+xlabel('cor')
+ylabel('-mse')
+
+subplot(2,2,3)
+plot(ray_cor, ray_part_dist,'.')
+title('cor-dist')
+xlabel('cor')
+ylabel('dist')
+
+subplot(2,2,4)
+plot(-ray_mse, ray_part_dist,'.')
+title('mse-dist')
+xlabel('-mse')
+ylabel('dist')
 %%
 figure(2)
 cmap = sky(5);

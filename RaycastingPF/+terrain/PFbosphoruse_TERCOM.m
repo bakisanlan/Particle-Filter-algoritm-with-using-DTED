@@ -13,6 +13,9 @@ hAircraft               = terrain.AircraftBot(zeros(4,1),0);
 
 %% Settings
 % Radar settings
+% hRadar.dtheta   = -2.5;
+% hRadar.dpsi     = 0;
+% hRadar.rayRange = 1500;
 hRadar.dtheta   = 10;
 hRadar.dpsi     = 10;
 hRadar.rayRange = 1500;
@@ -49,37 +52,17 @@ hReferenceMapScanner.dpsi       = hRadar.dpsi;
 hReferenceMapScanner.rayRange   = hRadar.rayRange;
 hReferenceMapScanner.DTED       = hRadar.DTED;
 
-% Aircraft settings
-% Initial pose
-% load("data/topgun_newtraj.mat")
-% load("data/topgun_traj_heading.mat")
-% load("data/topgun_traj_velocity.mat")
-
-% topgun_traj_velocity(1) = 1000;
-% topgun_traj_heading(1) = pi/2;
-
-% x0      = topgun_pos(1,1);
-% y0      = topgun_pos(1,2);
-% z0      = 1000;
-% x0      = 1.1324e+04;
-% y0      = 3.9600e+03;
-% z0      = 1000;
-%psi0    = 0*20*pi/180;
-% 
-% psi0    = topgun_traj_heading(1);
-
 x0      = 1500;
 y0      = 1500;
 z0      = 500;
 psi0    = 20*pi/180;
-
-Ts      = 0.5;
-hAircraft.Pose          = [x0; y0; z0; psi0];
-hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
+Ts      = 2;
+hAircraft.Pose          = [5*x0; 6*y0; z0; psi0];
+phi_r = 60;
+hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
 hAircraft.WithNoise     = false;      % Enables wind disturbance
-
 
 TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
@@ -88,12 +71,12 @@ var = [];
 %var_slid = [];
 
 % Estimator settings
-iPart = 100;
+iPart = 1;
 N = 200;
 range_part = 500;
 alt_std = 3;
 raycast_flag = false;
-batch_size = 10;
+batch_size = 1;
 
 %hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
@@ -106,23 +89,15 @@ hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 %r = rateControl(1/Ts);
 %reset(r);
 simTime = 0;
-Tf = 10;
+Tf = 20;
 loop_sampling = Tf/Ts;
-%topgun_traj_headdot = [diff(topgun_traj_heading) ; 0];
-% u = [topgun_traj_velocity(1:length(topgun_traj_velocity)/loop_sampling:end)...
-%      topgun_traj_heading(1:length(topgun_traj_heading)/loop_sampling:end)];
-u = [100; 2*pi/500];
+u = [100; 0];
 
 i = 1;
-Tf = 180;
+Tf = 80;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
-% hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
-% %hRadar.positionLiDAR    =  [18920.5565878799 ; 5600.82778773042 ; z0];
-% hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
-% hRadar.scanTerrain(false);
-% first_radar = hRadar.ptCloud.Location;
 
 while simTime < Tf
 
@@ -132,8 +107,7 @@ while simTime < Tf
     hAircraft.move(u,modelF);
 
     % Radar scan
-    hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; 0];
-    %hRadar.positionLiDAR    =  [18920.5565878799 ; 5600.82778773042 ; z0];
+    hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
     %hRadar.scanTerrain;
     hRadar.scanAltimeter;
@@ -144,49 +118,14 @@ while simTime < Tf
     %                                 u(i,:),hRadar.ptCloud, false,2);
 
     param = hEstimator.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
-                                    u,hRadar.ptCloud, false,modelF);
+                                    u,hRadar.ptCloud, raycast_flag,modelF);
 
     % param2 = hEstimator_slid_COR.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
     %                                 u(i,:),hRadar.ptCloud, false,2);
     toc
 
-    radar_pt_sensor = hRadar.ptCloud.Location;
-    %radar_pt_sensor = first_radar;
-    %radar_pt_sensor(logical(hEstimator_ray.non_idx(iPart,:)'),:) = [];
-    radar_pt_world = zeros(size(radar_pt_sensor));
-
-    %particle_pt_sensor_ray = reshape(hEstimator_ray.particles_pc{iPart},size(radar_pt_sensor));
-    particle_pt_sensor = hEstimator.particles_pc{iPart};
-    particle_pt_world = zeros(size(particle_pt_sensor));
-
-    %particle_pt_sensor_slid = reshape(hEstimator_slid.particles_pc{iPart},size(radar_pt_sensor));
-    % particle_pt_sensor_slid = hEstimator_slid_COR.particles_pc{iPart};
-    % particle_pt_world_slid = zeros(size(particle_pt_sensor_slid));
-
-    sTOw_radar = terrain.AbstractRayCasting3D.rTs(hRadar.positionLiDAR) * ...
-                     terrain.AbstractRayCasting3D.wRs(hRadar.orientationLiDAR(1),true);
-
-    sTOw_particle = terrain.AbstractRayCasting3D.rTs(hEstimator.particles(iPart,1:3)') * ...
-                 terrain.AbstractRayCasting3D.wRs(hRadar.orientationLiDAR(1),true);
-
-    % sTOw_particle_slid = terrain.AbstractRayCasting3D.rTs(hEstimator_slid_COR.particles(iPart,1:3)') * ...
-    %          terrain.AbstractRayCasting3D.wRs(hRadar.orientationLiDAR(1),true);
-
-    %radar_pt_world = radar_pt_world(:,1:3);
-    for q=1:length(radar_pt_sensor(:,1))
-        array = sTOw_radar * [radar_pt_sensor(q,:)'; 1];
-        radar_pt_world(q,1:3) = array(1:3);
-    end
-
-    for q=1:length(particle_pt_sensor(:,1))
-        array = sTOw_particle * [particle_pt_sensor(q,:)'; 1];
-        particle_pt_world(q,1:3) = array(1:3);
-    end
-
-    % for q=1:length(particle_pt_sensor_slid(:,1))
-    %     array = sTOw_particle_slid * [particle_pt_sensor_slid(q,:)'; 1];
-    %     particle_pt_world_slid(q,1:3) = array(1:3);
-    % end
+    radar_pt_world = hRadar.ptCloud.w.Location;
+    particle_pt_world = hEstimator.particles_pc{iPart};
 
     if ~isempty(param)
 
@@ -223,11 +162,6 @@ while simTime < Tf
     simTime = simTime + Ts;
     i = i+1;
 
-    %disp([hEstimator_ray.mean_sqrd_error(iPart) ,hEstimator_slid.mean_sqrd_error(iPart) ]);
-    %disp(['PF Point Cloud point-wise averaged error: ',num2str(mean(hEstimator.mean_sqrd_error))])
-    %disp(['PF-Slid PC averaged error: ',num2str(mean(hEstimator_slid_COR.mean_sqrd_error))])
-
-    %disp([hEstimator_ray.weights(iPart) hEstimator_slid.weights(iPart) ]);
 end
 %%
 % particles_history_ray = particles_history_ray([iPart N+iPart],:);
@@ -263,11 +197,14 @@ disp(['Estimation error of PF ',num2str(mean_error),' meters mean and ',num2str(
 % ll = [36.2083 -112.351];
 % ru = [36.2369 -112.405];  nan location
 % ll = [36.2161 -112.424];
-ll = [41 29];
-ru = [41.16 29.11];
-hDEM.visualizeDTED(ll,ru); hold on;
-%hDEM.visualizeDTED(left_lower,right_upper); hold on;
-view(0,90)
+% ll = [41 29];
+% ru = [41.16 29.11];
+ll = [41.012 29.015];
+ru = [41.02 29.030];
+
+%hDEM.visualizeDTED(ll,ru); hold on;
+hDEM.visualizeDTED(left_lower,right_upper); hold on;
+%view(0,90)
 
 particles_lla = ned2lla([particles_history(:,2) particles_history(:,1) -z0*ones(length(particles_history(:,1)),1)],[left_lower 0],"flat");
 particle_lla = ned2lla([particle_history(:,2) particle_history(:,1) -z0*ones(length(particle_history(:,1)),1)],[left_lower 0],"flat");
@@ -289,12 +226,35 @@ p1 = plot3(particles_lla(:,2),particles_lla(:,1),particles_lla(:,3),'b.');
 %p2 = plot3(particles_lla_slid(:,2),particles_lla_slid(:,1),particles_lla_slid(:,3),'b.');
 p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g.');
 %p4 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
-%radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
-%particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
+radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
+particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
 %particle_pt_p_slid = plot3(particle_pt_lla_slid(:,2),particle_pt_lla_slid(:,1),particle_pt_lla_slid(:,3),'y.');
 
 % p1.MarkerSize = 5;
 %p2.MarkerSize = 1;
 
 legend({'DTED Mesh','Particles','True Position','PF Estimation','Radar PC','PF Radar PC'},Location="best")
+
+%%
+
+Z = cell2mat(hEstimator.elev_particles_pc);
+radar_Z = cell2mat(hEstimator.radar_Z);
+tz = 1:length(radar_Z);
+MAE_hist = hEstimator.MAE_particles_hist;
+MAE_hist_b1 = hEstimator.MAE_particles_hist_b1;
+
+%plot(tz,radar_Z,'g',tz,Z,'b',tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
+
+
+figure(3)
+subplot(1,2,1)
+plot(tz,radar_Z,'g',tz,Z,'b')
+subplot(1,2,2)
+plot(tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
+
+
+figure(4)
+radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
+hold on
+%   particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
 
