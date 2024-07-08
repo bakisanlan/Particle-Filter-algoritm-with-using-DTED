@@ -44,6 +44,28 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
 
         end
 
+        function [xs,ys,zs,xw,yw,zw] = sliding(obj,location_w)
+
+            psi_s = obj.orientationLiDAR(1);
+            phi_s = obj.orientationLiDAR(3);
+
+            zw = interp2(obj.DTED{1},obj.DTED{2},obj.DTED{3},location_w(:,1),location_w(:,2));
+            location_w(:,3) = zw;
+
+            [row, col] = size(location_w);
+            location_w_cell = mat2cell(location_w, ones(1, row), col);
+            % Apply the wPOSEs function to each row (cell)
+            resultCellArray = cellfun(@(x) terrain.AbstractRayCasting3D.sPOSEw(obj.positionLiDAR,x,psi_s,phi_s), location_w_cell, 'UniformOutput', false);
+            % Convert the cell array back to a matrix
+            resultArray = cell2mat(resultCellArray);
+            resultArray = reshape(resultArray,col+1,row);
+            location_s = resultArray';
+            location_s = location_s(:,1:3);
+
+            xw = location_w(:,1); yw = location_w(:,2); zw = location_w(:,3);
+            xs = location_s(:,1); ys = location_s(:,2); zs = location_s(:,3);
+        end
+
         function [xs,ys,zs,xw,yw,zw] = raycast(obj, theta, psi_r)
             %RAYCAST Shooting a ray, ray casting, at an angle PSI from the
             %z-axis of ENU and THETA about the y-axis of the intermediate

@@ -253,6 +253,9 @@ classdef StateEstimatorTERCOM < handle
 
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
+            % disp(self.weights)
+            % disp(self.MAE_particles)
+
 
             % Below code for resampling criteria. There are many methods to
             % choose when we should resample but we choose N_eff < N/2 criteria
@@ -317,12 +320,14 @@ classdef StateEstimatorTERCOM < handle
                     Zs = zeros(n,1);
                     Zw = zeros(n,1);
 
-                    for j=1:n
-                        [Zs(j), Zw(j)] = self.hReferenceMapScanner.readAltimeter([XrYr_s(j,1);XrYr_s(j,2);self.Zr(j)]);
-                        XrYr_w(j,:) = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
-                        %Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
+                    % for j=1:n
+                    %     [Zs(j), Zw(j)] = self.hReferenceMapScanner.readAltimeter([XrYr_s(j,1);XrYr_s(j,2);self.Zr(j)]);
+                    %     XrYr_w(j,:) = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                    % end
 
-                    end
+                    [Zs, Zw] = self.hReferenceMapScanner.readAltimeter_interp([XrYr_s self.Zr]);
+                    XrYr_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                    %Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
                     particle_pc_w = XrYr_w;
                 end
 
@@ -525,17 +530,15 @@ classdef StateEstimatorTERCOM < handle
                 range_rand_part = [2*self.x_span ; 2*self.y_span];
 
                 %disp(self.weights)
-
                 rand_partc = self.create_uniform_particles(n_rand_partc,self.meann,range_rand_part);
-
                 self.particles = [self.particles(indexes,:) ; rand_partc];
             else
-                disp('---------------------------------------')
-                disp('--------------Resampled----------------')
-                disp('---------------------------------------')
-
                 self.particles = self.particles(indexes,:);
             end
+
+            disp('---------------------------------------')
+            disp('--------------Resampled----------------')
+            disp('---------------------------------------')
 
             % reset batch and batch_n of resampled particle
             % changed_part_idx = self.old_index ~= indexes;

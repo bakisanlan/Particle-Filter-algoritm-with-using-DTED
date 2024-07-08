@@ -172,7 +172,6 @@ while simTime < Tf
     particle_pt_world_ray = hEstimator_ray.particles_pc{iPart};
     particle_pt_world_slid = hEstimator_slid.particles_pc{iPart};
 
-
     hAircraft.EstimatedPose = [param1(1); param1(2)];
     EstimatedPose_slid = [param2(1); param2(2)];
 
@@ -314,7 +313,6 @@ end
 % legend('Truth', 'Estimated', 'Particles');
 valid_index_ray = ~isnan(TraceEstimatedPose_ray);
 valid_index_slid = ~isnan(TraceEstimatedPose_slid);
-
 
 TracePose = TracePose(1:2,:);
 diff_ray = reshape(TracePose(logical([[0; 0] valid_index_ray])),2,[]) - reshape(TraceEstimatedPose_ray(valid_index_ray),2,[]);

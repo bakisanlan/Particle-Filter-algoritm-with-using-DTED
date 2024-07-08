@@ -152,7 +152,7 @@ classdef AbstractRayCasting3D < handle
             %Set flagAltimeter false when scanning terrain rather than
             %altimeter
             obj.flagScanAltimeter = false;
-                
+
             if nargin == 1
                 flagPlot = false;
             end
@@ -304,6 +304,39 @@ classdef AbstractRayCasting3D < handle
             obj.rayRange        = originalRange;
         end
 
+        function [zs, zw] = readAltimeter_interp(obj, location_s)
+            %READALTIMETER Returns altitude above terrain from a given
+            %location in sensor frame.
+            %
+            %   Given an x-y-z location in sensor frame, it returns the
+            %   orthogonal distance to terrain in sensor frame, namely:
+            %
+            %      zs = - altitude
+            %
+
+            psi_s = obj.orientationLiDAR(1);
+            phi_s = obj.orientationLiDAR(3);
+
+            % Convert the rows of the array into cells
+            % location_s is Nx3 position matrix for radar point in sensor
+            % frame
+            
+            [row, col] = size(location_s);
+            location_s_cell = mat2cell(location_s, ones(1, row), col);
+            % Apply the wPOSEs function to each row (cell)
+            resultCellArray = cellfun(@(x) terrain.AbstractRayCasting3D.wPOSEs(obj.positionLiDAR,x,psi_s,phi_s), location_s_cell, 'UniformOutput', false);
+            % Convert the cell array back to a matrix
+            resultArray = cell2mat(resultCellArray);
+            resultArray = reshape(resultArray,col+1,row);
+            location_w = resultArray';
+            location_w = location_w(:,1:3);
+
+            [xs,ys,zs,xw,yw,zw] = sliding(obj,location_w);
+            obj.ptCloud.s = pointCloud([xs ys zs]);
+            obj.ptCloud.w = pointCloud([xw yw zw]);
+        end
+
+
         function showMap(obj,x,y,z)
             %SHOWMAP Plot the map and the terrain.
 
@@ -319,6 +352,7 @@ classdef AbstractRayCasting3D < handle
             % Plot the LiDAR location
             plot3(obj.positionLiDAR(1),obj.positionLiDAR(2),obj.positionLiDAR(3),'k.','MarkerSize',20,'DisplayName','LiDAR Location')
         end
+
     end
 
     methods (Abstract = true)
@@ -353,17 +387,17 @@ classdef AbstractRayCasting3D < handle
             % Rotation matrix from sensor frame to intermediate sensor frame. It is given
             % as follows:
             %
-            %   siRs = [1   0           0 
-            %           0   cos(phi_s)  sin(phi_s) 
+            %   siRs = [1   0           0
+            %           0   cos(phi_s)  sin(phi_s)
             %           0  -sin(phi_s)  cos(phi_s)]
             %
             %  The matrix can be augmented to accomodate for translations.
 
             phi_s = phi_s/180*pi;
 
-            r = [1   0            0 
-                 0   cos(phi_s)  -sin(phi_s) 
-                 0   sin(phi_s)   cos(phi_s)];
+            r = [1   0            0
+                0   cos(phi_s)  -sin(phi_s)
+                0   sin(phi_s)   cos(phi_s)];
 
             if (nargin == 2) && augmentedflag
                 r=  [r zeros(3,1); zeros(1,3) 1];
@@ -424,7 +458,7 @@ classdef AbstractRayCasting3D < handle
             t= [eye(3) d; zeros(1,3) 1];
         end
 
-        function pose = wPOSEr (d,psi_s,psi_r,theta)
+        function pose = wPOSEr(d,psi_s,psi_r,theta)
             % Pose from world frame to ray frame, and is given by:
             %
             %   POSE = rTs * [wRs 0;0 1] * [sRi1 0;0 1] * [i1Rr 0;0 1];
@@ -441,6 +475,28 @@ classdef AbstractRayCasting3D < handle
             rTs         = terrain.AbstractRayCasting3D.rTs(d);
 
             pose =  rTs * wRs * sRi1 * i1Rr;
+        end
+
+        function pose_w = wPOSEs(positionLiDAR,pose_s,psi_s,phi_s)
+            % Pose sensor frame to world frame , and is given by:
+
+            if length(pose_s(1,:)) ~= 1
+                pose_s = pose_s';
+            end
+            pose_w = terrain.AbstractRayCasting3D.rTs(positionLiDAR) * ...
+                terrain.AbstractRayCasting3D.wRsi(psi_s,true) * ...
+                terrain.AbstractRayCasting3D.siRs(phi_s,true) * [pose_s;1];
+        end
+
+        function pose_s = sPOSEw(positionLiDAR,pose_w,psi_s,phi_s)
+            % Pose sensor frame to world frame , and is given by:
+
+            if length(pose_w(1,:)) ~= 1
+                pose_w = pose_w';
+            end
+            pose_s = terrain.AbstractRayCasting3D.siRs(phi_s,true) * ...
+                     terrain.AbstractRayCasting3D.wRsi(psi_s,true) * ...
+                     terrain.AbstractRayCasting3D.rTs(-positionLiDAR) * [pose_w;1];
         end
     end
 end
