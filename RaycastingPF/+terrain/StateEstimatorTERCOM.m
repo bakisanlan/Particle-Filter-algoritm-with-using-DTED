@@ -48,7 +48,7 @@ classdef StateEstimatorTERCOM < handle
     methods (Access = public)
         function self = StateEstimatorTERCOM(N,init_pos,x_span,y_span,exp_rate,alt_std,dt,batch_size)
             % Defining properties
-            %rng(1,'twister')
+            rng(5,'twister')
 
             self.N = N;
             self.x_span = x_span;
@@ -58,8 +58,8 @@ classdef StateEstimatorTERCOM < handle
             self.dt = dt;
             self.batch_size = batch_size;
             self.batch_n_Part = zeros(self.N,1);
-            self.process_std = [5 0.02];
-            %self.process_std = [0 0];
+            %self.process_std = [5 0.02];
+            self.process_std = [0 0];
             self.old_index = 1:self.N;
             self.count_est = 1;
 
@@ -239,6 +239,7 @@ classdef StateEstimatorTERCOM < handle
 
             % find means of batch elements for finding final MAE
             self.MAE_particles = cellfun(@mean,self.MAE_Batch_Part);
+            self.MAE_particles = self.MAE_particles + 10;
             self.MAE_particles_hist(:,self.count_est) = self.MAE_particles;
             %temp = cell2mat(self.MAE_Batch_Part);
             self.MAE_particles_hist_b1(:,self.count_est) = cellfun(@(x) x(end), self.MAE_Batch_Part);
@@ -261,8 +262,8 @@ classdef StateEstimatorTERCOM < handle
             % choose when we should resample but we choose N_eff < N/2 criteria
             % If condition is provided, we are resampling our particles
             % with Systematic resampling methods.
-            if self.neff < self.N/2
-            %if false
+            %if self.neff < self.N/2
+            if false
                 indexes = self.resample_Systematic;
                 self.resample(indexes)
             end
@@ -320,14 +321,15 @@ classdef StateEstimatorTERCOM < handle
                     Zs = zeros(n,1);
                     Zw = zeros(n,1);
 
-                    % for j=1:n
-                    %     [Zs(j), Zw(j)] = self.hReferenceMapScanner.readAltimeter([XrYr_s(j,1);XrYr_s(j,2);self.Zr(j)]);
-                    %     XrYr_w(j,:) = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
-                    % end
-
-                    [Zs, Zw] = self.hReferenceMapScanner.readAltimeter_interp([XrYr_s self.Zr]);
-                    XrYr_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
-                    %Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
+                    for j=1:n
+                        [Zs(j), Zw(j)] = self.hReferenceMapScanner.readAltimeter([XrYr_s(j,1);XrYr_s(j,2);self.Zr(j)]);
+                        XrYr_w(j,:) = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                    end
+                    % 
+                    % [Zs, Zw] = self.hReferenceMapScanner.readAltimeter_interp([XrYr_s self.Zr]);
+                    % XrYr_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                    % %Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
+                    
                     particle_pc_w = XrYr_w;
                 end
 

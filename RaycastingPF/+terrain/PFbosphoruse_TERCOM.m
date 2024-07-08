@@ -54,10 +54,11 @@ hReferenceMapScanner.DTED       = hRadar.DTED;
 
 x0      = 1500;
 y0      = 1500;
-z0      = 500;
-psi0    = 20*pi/180;
+z0      = 300;
+% psi0    = 20*pi/180;
+psi0    = 0*pi/180;
 Ts      = 2;
-hAircraft.Pose          = [5*x0; 6*y0; z0; psi0];
+hAircraft.Pose          = [x0; y0; z0; psi0];
 phi_r = 60;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
@@ -72,10 +73,10 @@ var = [];
 
 % Estimator settings
 iPart = 1;
-N = 200;
+N = 500;
 range_part = 500;
 alt_std = 3;
-raycast_flag = false;
+raycast_flag = true;
 batch_size = 1;
 
 %hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
@@ -91,10 +92,9 @@ hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 simTime = 0;
 Tf = 20;
 loop_sampling = Tf/Ts;
-u = [100; 0];
-
+% u = [100; 0];
 i = 1;
-Tf = 80;
+Tf = 150;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
@@ -102,6 +102,8 @@ particles_history(1:N,:) = hEstimator.particles(:,1:2);
 while simTime < Tf
 
     %u = [100; 2*pi/500];
+    u = [100; 0];
+
 
     %hAircraft.move(u(i,:),2);
     hAircraft.move(u,modelF);

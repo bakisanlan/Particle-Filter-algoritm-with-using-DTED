@@ -101,7 +101,7 @@ u = [topgun_traj_velocity(1:length(topgun_traj_velocity)/loop_sampling:end)...
      topgun_traj_heading(1:length(topgun_traj_heading)/loop_sampling:end)];
 i = 1;
 
-Tf = 200;
+Tf = 180;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
