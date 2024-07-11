@@ -5,7 +5,7 @@ clc; clear; close all;
 addpath(genpath('C:\Users\user\Desktop\githubdeneme\pointssim'))
 rng(5,'twister')
 %% Create simulation objects
-scene = 1;
+scene = 'BP';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -23,12 +23,12 @@ hRadar.rayRange = 1500;
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
-if scene == 1
+if scene == 'BP'
     left_lower = [41 29];
     right_upper = [41.30 29.20];
     hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
     modelF = 1;
-elseif scene == 2
+elseif scene == 'GC'
     left_lower = [36.18777778 -112.54111111];
     right_upper = [36.38000000 -112.31166667];
     hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
@@ -59,11 +59,11 @@ z0      = 300;
 psi0    = 0*pi/180;
 Ts      = 2;
 hAircraft.Pose          = [x0; y0; z0; psi0];
-phi_r = 60;
+phi_r = 0;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
-hAircraft.WithNoise     = false;      % Enables wind disturbance
+hAircraft.WithNoise     = true;      % Enables wind disturbance
 
 TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
@@ -73,10 +73,10 @@ var = [];
 
 % Estimator settings
 iPart = 1;
-N = 500;
+N = 100;
 range_part = 500;
 alt_std = 3;
-raycast_flag = true;
+raycast_flag = false;
 batch_size = 1;
 
 %hEstimator = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
@@ -101,8 +101,8 @@ particles_history(1:N,:) = hEstimator.particles(:,1:2);
 
 while simTime < Tf
 
-    %u = [100; 2*pi/500];
-    u = [100; 0];
+    u = [100; 2*pi/500];
+    %u = [100; 0];
 
 
     %hAircraft.move(u(i,:),2);
@@ -111,8 +111,8 @@ while simTime < Tf
     % Radar scan
     hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
-    %hRadar.scanTerrain;
-    hRadar.scanAltimeter;
+    hRadar.scanTerrain;
+    %hRadar.scanAltimeter;
 
     % Estimate using x-y grid overlaying and not full ray casting
     tic

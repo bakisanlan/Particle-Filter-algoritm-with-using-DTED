@@ -63,9 +63,7 @@ classdef AbstractRayCasting3D < handle
         dtheta;
         ptCloud;
         hFigure;
-        TFRptCloudSensor
-        TFRptCloudWorld
-        zTERCOM
+        TFRptCloud
         flagScanAltimeter
 
     end
@@ -85,7 +83,7 @@ classdef AbstractRayCasting3D < handle
                 obj.rayRange = 1000;
                 obj.dpsi = 1;
                 obj.dtheta = 1;
-                obj.flagScanAltimeter = false;
+                obj.flagScanAltimeter = false; % default use point cloud RADAR
             else
                 obj.flagScanAltimeter = false;
                 obj.positionLiDAR = varargin{1};
@@ -149,8 +147,8 @@ classdef AbstractRayCasting3D < handle
             %   accounts for uncertainities encountered by a real radar
             %   scan.
 
-            %Set flagAltimeter false when scanning terrain rather than
-            %altimeter
+            %Set flagAltimeter false when scanning terrain with point cloud
+            % RADAR rather than single point ALTIMETER
             obj.flagScanAltimeter = false;
 
             if nargin == 1
@@ -176,33 +174,9 @@ classdef AbstractRayCasting3D < handle
             obj.ptCloud.w = pointCloud([Xw Yw Zw]);
 
             if flagPlot && ~isempty(obj.hFigure)
-                Xw = [xw1;xw2;xw3;xw4;xw5;xw6];
-                Yw = [yw1;yw2;yw3;yw4;yw5;yw6];
-                Zw = [zw1;zw2;zw3;zw4;zw5;zw6];
                 figure(obj.hFigure);
                 plot3(Xw,Yw,Zw,'r.','MarkerSize',10,'DisplayName','LiDAR Scans');
             end
-
-
-            % [x3,y3,z3,xw3,yw3,zw3] = obj.sweep_line(120,90, 0);
-            % % [x4,y4,z4,xw4,yw4,zw4] = obj.sweep_arc(170, 60);
-            % % [x5,y5,z5,xw5,yw5,zw5] = obj.sweep_arc(170, 40);
-            % % [x6,y6,z6,xw6,yw6,zw6] = obj.sweep_arc(170, 30);
-            %
-            % X = [x3];
-            % Y = [y3];
-            % Z = [z3];
-            %
-            % obj.ptCloud = pointCloud([X Y Z]);
-            %
-            % if flagPlot && ~isempty(obj.hFigure)
-            %     Xw = [xw3];
-            %     Yw = [yw3];
-            %     Zw = [zw3];
-            %     figure(obj.hFigure);
-            %     plot3(Xw,Yw,Zw,'r.','MarkerSize',10,'DisplayName','LiDAR Scans');
-            % end
-
         end
 
         function scanAltimeter(obj)
@@ -216,50 +190,6 @@ classdef AbstractRayCasting3D < handle
             obj.ptCloud.s = pointCloud([xs ys zs]);
             obj.ptCloud.w = pointCloud([xw yw zw]);
 
-            obj.zTERCOM = zw;
-
-        end
-
-        function scanTFRmode(obj, flagPlot)
-            %SCANREALTERRAIN Scan the terrain.
-            %
-            %   Two types of scanning are possible. Scanning a terrain that
-            %   functions as the pre-loaded reference map terrain whose
-            %   scanning can be compared with a radar scan, or as a terrain
-            %   that functions as the simulated enviroment real terrain
-            %   emulating a real radar scan.
-            %
-            %   When used as a radar emulator scanning the simulated
-            %   enviroment terrain. It is best to apply ray casting that
-            %   accounts for uncertainities encountered by a real radar
-            %   scan.
-
-            if nargin == 1
-                flagPlot = false;
-            end
-
-            [x1,y1,z1,xw1,yw1,zw1] = obj.sweep_line(-8,32, 0);
-            % [x2,y2,z2,xw2,yw2,zw2] = obj.sweep_line(30,90, 0);
-            % [x3,y3,z3,xw3,yw3,zw3] = obj.sweep_line(30,90, -45);
-            % [x4,y4,z4,xw4,yw4,zw4] = obj.sweep_arc(170, 60);
-            % [x5,y5,z5,xw5,yw5,zw5] = obj.sweep_arc(170, 40);
-            % [x6,y6,z6,xw6,yw6,zw6] = obj.sweep_arc(170, 30);
-
-            % X = [x1;x2;x3;x4;x5;x6];
-            % Y = [y1;y2;y3;y4;y5;y6];
-            % Z = [z1;z2;z3;z4;z5;z6];
-
-            obj.TFRptCloudSensor = pointCloud([x1 y1 z1]);
-            obj.TFRptCloudWorld  = pointCloud([xw1 yw1 zw1]);
-
-
-            if flagPlot && ~isempty(obj.hFigure)
-                Xw = [xw1;xw2;xw3;xw4;xw5;xw6];
-                Yw = [yw1;yw2;yw3;yw4;yw5;yw6];
-                Zw = [zw1;zw2;zw3;zw4;zw5;zw6];
-                figure(obj.hFigure);
-                plot3(Xw,Yw,Zw,'r.','MarkerSize',10,'DisplayName','LiDAR Scans');
-            end
         end
 
         function [zs, zw] = readAltimeter(obj, location_s)
@@ -277,8 +207,8 @@ classdef AbstractRayCasting3D < handle
 
             % In world frame
             xyz_w = terrain.AbstractRayCasting3D.rTs(obj.positionLiDAR) * ...
-                          terrain.AbstractRayCasting3D.wRsi(psi_s,true) * ...
-                          terrain.AbstractRayCasting3D.siRs(phi_s,true) * [location_s;1];
+                terrain.AbstractRayCasting3D.wRsi(psi_s,true) * ...
+                terrain.AbstractRayCasting3D.siRs(phi_s,true) * [location_s;1];
 
             % Move to radar point on z direction of world ENU to aircraft
             % level
@@ -305,8 +235,8 @@ classdef AbstractRayCasting3D < handle
         end
 
         function [zs, zw] = readAltimeter_interp(obj, location_s)
-            %READALTIMETER Returns altitude above terrain from a given
-            %location in sensor frame.
+            % readAltimeter_interp Returns altitude above terrain from a given
+            % location in sensor frame with using built in interp2 function
             %
             %   Given an x-y-z location in sensor frame, it returns the
             %   orthogonal distance to terrain in sensor frame, namely:
@@ -320,7 +250,7 @@ classdef AbstractRayCasting3D < handle
             % Convert the rows of the array into cells
             % location_s is Nx3 position matrix for radar point in sensor
             % frame
-            
+
             [row, col] = size(location_s);
             location_s_cell = mat2cell(location_s, ones(1, row), col);
             % Apply the wPOSEs function to each row (cell)
@@ -336,6 +266,38 @@ classdef AbstractRayCasting3D < handle
             obj.ptCloud.w = pointCloud([xw yw zw]);
         end
 
+        function scanTFRmode(obj, flagPlot)
+            % scanTFRmode scan the terrain with just sweep line that is
+            % front view of aircraft bounded [-8,32] theta degrees.
+
+            if nargin == 1
+                flagPlot = false;
+            end
+
+            [x1,y1,z1,xw1,yw1,zw1] = obj.sweep_line(-8,32, 0);
+            % [x2,y2,z2,xw2,yw2,zw2] = obj.sweep_line(30,90, 0);
+            % [x3,y3,z3,xw3,yw3,zw3] = obj.sweep_line(30,90, -45);
+            % [x4,y4,z4,xw4,yw4,zw4] = obj.sweep_arc(170, 60);
+            % [x5,y5,z5,xw5,yw5,zw5] = obj.sweep_arc(170, 40);
+            % [x6,y6,z6,xw6,yw6,zw6] = obj.sweep_arc(170, 30);
+
+            Xs = x1;
+            Ys = y1;
+            Zs = z1;
+
+            Xw = xw1;
+            Yw = yw1;
+            Zw = zw1;
+
+            obj.TFRptCloud.s = pointCloud([Xs Ys Zs]);
+            obj.TFRptCloud.w = pointCloud([Xw Yw Zw]);
+
+
+            if flagPlot && ~isempty(obj.hFigure)
+                figure(obj.hFigure);
+                plot3(Xw,Yw,Zw,'r.','MarkerSize',10,'DisplayName','LiDAR Scans');
+            end
+        end
 
         function showMap(obj,x,y,z)
             %SHOWMAP Plot the map and the terrain.
@@ -367,7 +329,7 @@ classdef AbstractRayCasting3D < handle
             % Rotation matrix from intermediate sensor frame to world frame. It is given
             % as follows:
             %
-            %   wRs = [cos(psi_s)  -sin(psi_s)  0
+            %   wRsi = [cos(psi_s)  -sin(psi_s)  0
             %          sin(psi_s)   cos(psi_s)  0
             %          0            0           1]
             %
@@ -495,8 +457,8 @@ classdef AbstractRayCasting3D < handle
                 pose_w = pose_w';
             end
             pose_s = terrain.AbstractRayCasting3D.siRs(phi_s,true) * ...
-                     terrain.AbstractRayCasting3D.wRsi(psi_s,true) * ...
-                     terrain.AbstractRayCasting3D.rTs(-positionLiDAR) * [pose_w;1];
+                terrain.AbstractRayCasting3D.wRsi(psi_s,true) * ...
+                terrain.AbstractRayCasting3D.rTs(-positionLiDAR) * [pose_w;1];
         end
     end
 end

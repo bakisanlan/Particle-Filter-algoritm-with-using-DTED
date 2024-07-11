@@ -58,8 +58,8 @@ classdef StateEstimatorTERCOM < handle
             self.dt = dt;
             self.batch_size = batch_size;
             self.batch_n_Part = zeros(self.N,1);
-            %self.process_std = [5 0.02];
-            self.process_std = [0 0];
+            self.process_std = [5 0.02];
+            %self.process_std = [0 0];
             self.old_index = 1:self.N;
             self.count_est = 1;
 
@@ -262,8 +262,8 @@ classdef StateEstimatorTERCOM < handle
             % choose when we should resample but we choose N_eff < N/2 criteria
             % If condition is provided, we are resampling our particles
             % with Systematic resampling methods.
-            %if self.neff < self.N/2
-            if false
+            if self.neff < self.N/2
+            %if false
                 indexes = self.resample_Systematic;
                 self.resample(indexes)
             end

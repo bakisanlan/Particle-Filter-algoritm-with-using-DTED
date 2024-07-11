@@ -88,7 +88,7 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
 
             r0 = obj.positionLiDAR;
             D = terrain.AbstractRayCasting3D.wRsi(psi_s)*...
-                terrain.AbstractRayCasting3D.siRs(phi_s)*... %? transpose
+                terrain.AbstractRayCasting3D.siRs(phi_s)*... 
                 terrain.AbstractRayCasting3D.sRi1(psi_r)*...
                 terrain.AbstractRayCasting3D.i1Rr(theta)* [1;0;0];
 
@@ -100,6 +100,10 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
             Z = obj.DTED{3}(iy,ix);
 
             % Get the single square mesh orthogonally below if THETA = 90;
+            % When Altimeter is used, looking just below is not correct,
+            % because  might be there is no gimball. While there is bank 
+            % angle deflection, rays should be scan over terrain through 
+            % ray range limits.
             if theta == 90 && ~obj.flagScanAltimeter
                 idx_x = find(X > r0(1),1);
                 idx_y = find(Y > r0(2),1);
