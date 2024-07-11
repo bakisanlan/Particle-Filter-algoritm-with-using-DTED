@@ -56,14 +56,14 @@ x0      = 1500;
 y0      = 1500;
 z0      = 300;
 % psi0    = 20*pi/180;
-psi0    = 0*pi/180;
+psi0    = 20*pi/180;
 Ts      = 2;
 hAircraft.Pose          = [x0; y0; z0; psi0];
 phi_r = 0;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
-hAircraft.WithNoise     = true;      % Enables wind disturbance
+hAircraft.WithNoise     = false;      % Enables wind disturbance
 
 TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
@@ -94,7 +94,7 @@ Tf = 20;
 loop_sampling = Tf/Ts;
 % u = [100; 0];
 i = 1;
-Tf = 150;
+Tf = 200;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
@@ -120,7 +120,7 @@ while simTime < Tf
     %                                 u(i,:),hRadar.ptCloud, false,2);
 
     param = hEstimator.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
-                                    u,hRadar.ptCloud, raycast_flag,modelF);
+                                    u,hRadar.ptCloud, raycast_flag, modelF);
 
     % param2 = hEstimator_slid_COR.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
     %                                 u(i,:),hRadar.ptCloud, false,2);
@@ -259,4 +259,3 @@ figure(4)
 radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
 hold on
 %   particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
-
