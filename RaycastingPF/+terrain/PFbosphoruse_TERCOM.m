@@ -236,26 +236,34 @@ particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_
 %p2.MarkerSize = 1;
 
 legend({'DTED Mesh','Particles','True Position','PF Estimation','Radar PC','PF Radar PC'},Location="best")
+%%
+figure(55); hold on;
+plot(TracePose(1,:),TracePose(2,:),'b:o','MarkerSize',10);
+plot(TraceEstimatedPose(1,:),TraceEstimatedPose(2,:),'rx','MarkerSize',5);
+plot(particles_history(:,1),particles_history(:,2),'k.')
+daspect([1 1 1])
+pbaspect([1 1 1])
+legend('Truth', 'Estimated');
 
 %%
-
-Z = cell2mat(hEstimator.elev_particles_pc);
-radar_Z = cell2mat(hEstimator.radar_Z);
-tz = 1:length(radar_Z);
-MAE_hist = hEstimator.MAE_particles_hist;
-MAE_hist_b1 = hEstimator.MAE_particles_hist_b1;
-
-%plot(tz,radar_Z,'g',tz,Z,'b',tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
-
-
-figure(3)
-subplot(1,2,1)
-plot(tz,radar_Z,'g',tz,Z,'b')
-subplot(1,2,2)
-plot(tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
-
-
-figure(4)
-radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
-hold on
-%   particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
+% 
+% Z = cell2mat(hEstimator.elev_particles_pc);
+% radar_Z = cell2mat(hEstimator.radar_Z);
+% tz = 1:length(radar_Z);
+% MAE_hist = hEstimator.MAE_particles_hist;
+% MAE_hist_b1 = hEstimator.MAE_particles_hist_b1;
+% 
+% %plot(tz,radar_Z,'g',tz,Z,'b',tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
+% 
+% 
+% figure(3)
+% subplot(1,2,1)
+% plot(tz,radar_Z,'g',tz,Z,'b')
+% subplot(1,2,2)
+% plot(tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
+% 
+% 
+% figure(4)
+% radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
+% hold on
+% %   particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
