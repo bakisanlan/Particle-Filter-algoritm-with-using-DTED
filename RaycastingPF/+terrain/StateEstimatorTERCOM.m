@@ -239,7 +239,7 @@ classdef StateEstimatorTERCOM < handle
 
             % find means of batch elements for finding final MAE
             self.MAE_particles = cellfun(@mean,self.MAE_Batch_Part);
-            self.MAE_particles = self.MAE_particles + 10;
+            self.MAE_particles = self.MAE_particles;
             self.MAE_particles_hist(:,self.count_est) = self.MAE_particles;
             %temp = cell2mat(self.MAE_Batch_Part);
             self.MAE_particles_hist_b1(:,self.count_est) = cellfun(@(x) x(end), self.MAE_Batch_Part);

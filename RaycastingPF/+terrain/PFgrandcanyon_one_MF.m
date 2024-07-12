@@ -78,7 +78,7 @@ var = [];
 
 % Estimator settings
 iPart = 100;
-N = 500;
+N = 100;
 range_part = 500;
 alt_std = 3;
 raycast_flag = false;
@@ -260,3 +260,13 @@ p1.MarkerSize = 1;
 %p2.MarkerSize = 1;
 
 legend({'DTED Mesh','Particles','True Position','PF Estimation','Radar PC','PF Radar PC'},Location="best")
+
+%%
+
+figure(32); hold on;
+plot(TracePose(1,:),TracePose(2,:),'b:o','MarkerSize',10);
+plot(TraceEstimatedPose(1,:),TraceEstimatedPose(2,:),'rx','MarkerSize',5);
+plot(particles_history(:,1),particles_history(:,2),'k.')
+daspect([1 1 1])
+pbaspect([1 1 1])
+legend('Truth', 'Estimated');
