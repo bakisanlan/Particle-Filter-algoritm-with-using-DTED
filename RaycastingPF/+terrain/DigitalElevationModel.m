@@ -108,7 +108,7 @@ classdef DigitalElevationModel < handle
             obj.cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
 
             %hF3 = figure; clf;
-            a = mesh(lons, lats, As);
+            a = mesh(lons, lats, As,'DisplayName','DTED Mesh');
             set(a,'FaceColor','flat','EdgeColor','none')
             %pbaspect([1 1 0.05]); %view(-7,31);
             axis([min(lons) max(lons) min(lats) max(lats)]);
