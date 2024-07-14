@@ -56,7 +56,7 @@ topgun_traj_heading(1) = pi/2;
 
 x0      = topgun_pos(1,1);
 y0      = topgun_pos(1,2);
-z0      = 1000;
+z0      = 1500;
 % x0      = 1.1324e+04;
 % y0      = 3.9600e+03;
 % z0      = 1000;
@@ -65,7 +65,7 @@ psi0    = topgun_traj_heading(1);
 
 Ts      = 2;
 hAircraft.Pose          = [x0; y0; z0; psi0];
-phi_r = 60;
+phi_r = 0;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
@@ -78,8 +78,8 @@ var_slid = [];
 
 % Estimator settings
 iPart = 1;
-N = 1;
-range_part = 0.000001;
+N = 100;
+range_part = 500;
 alt_std = 3;
 batch_size = 1;
 hEstimator_ray = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
@@ -99,7 +99,7 @@ u = [topgun_traj_velocity(1:length(topgun_traj_velocity)/loop_sampling:end)...
      topgun_traj_heading(1:length(topgun_traj_heading)/loop_sampling:end)];
 i = 1;
 
-Tf = 5;
+Tf = 40;
 particles_history_ray(1:N,:) = hEstimator_ray.particles(:,1:2);
 particles_history_slid(1:N,:) = hEstimator_slid.particles(:,1:2);
 
@@ -265,38 +265,38 @@ while simTime < Tf
     % ru = [36.2369 -112.405];  nan location
     % ll = [36.2161 -112.424];
     %subplot('Position',[0.4 0.1 0.55 0.85])
-    hDEM.visualizeDTED(ll,ru); 
-    view(45,80)
+    %hDEM.visualizeDTED(ll,ru); 
+    %view(45,80)
     %colormap(sp,cmap2gray(hDEM.cmap)); colorbar('Location','westoutside');
 
-    hold on;
+    % hold on;
     %hDEM.visualizeDTED(left_lower,right_upper); hold on;
-    
-    particles_lla_ray = ned2lla([particles_history_ray(1+N*(i-1):N*(i+1-1),2) particles_history_ray(1+N*(i-1):N*(i+1-1),1) -z0*ones(length(hEstimator_ray.particles(:,1)),1)],[left_lower 0],"flat");
-    particles_lla_slid = ned2lla([particles_history_slid(1+N*(i-1):N*(i+1-1),2) particles_history_slid(1+N*(i-1):N*(i+1-1),1) -z0*ones(length(hEstimator_slid.particles(:,1)),1)],[left_lower 0],"flat");
-    
-    TracePose_lla = ned2lla([TracePose(2,end)' TracePose(1,end)' -z0*ones(length(TracePose(1,end)),1)],[left_lower 0],"flat");
-    TraceEstimatedPose_lla = ned2lla([TraceEstimatedPose_ray(2,end)' TraceEstimatedPose_ray(1,end)' -z0*ones(length(TraceEstimatedPose_ray(1,end)),1)],[left_lower 0],"flat");
-    radar_pt_lla =  ned2lla([radar_pt_world(:,2) radar_pt_world(:,1) -radar_pt_world(:,3)],[left_lower 0],"flat");
-    particle_pt_lla_ray =  ned2lla([particle_pt_world_ray(:,2) particle_pt_world_ray(:,1) -particle_pt_world_ray(:,3)],[left_lower 0],"flat");
-    particle_pt_lla_slid =  ned2lla([particle_pt_world_slid(:,2) particle_pt_world_slid(:,1) -particle_pt_world_slid(:,3)],[left_lower 0],"flat");
-    
-    % radar_pt_lla= radar_pt_lla(1,:);
-    % particle_pt_lla_ray = particle_pt_lla_ray(1,:);
-    % particle_pt_lla_slid = particle_pt_lla_slid(1,:);
-    
-    %p1 = plot3(particles_lla_ray(:,2),particles_lla_ray(:,1),particles_lla_ray(:,3),'r.');
-    %p2 = plot3(particles_lla_slid(:,2),particles_lla_slid(:,1),particles_lla_slid(:,3),'b.');
-    %p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g*');
-    %p4 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
-    radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
-    particle_pt_p_ray = plot3(particle_pt_lla_ray(:,2),particle_pt_lla_ray(:,1),particle_pt_lla_ray(:,3),'m.');
-    particle_pt_p_slid = plot3(particle_pt_lla_slid(:,2),particle_pt_lla_slid(:,1),particle_pt_lla_slid(:,3),'k.');
-    hold off;
-    %p1.MarkerSize = 2;
-    %p2.MarkerSize = 2;
-    
-    legend({'DTED Mesh','PcRadar','PcRay','PcSlid'},Location="best")
+    % 
+    % particles_lla_ray = ned2lla([particles_history_ray(1+N*(i-1):N*(i+1-1),2) particles_history_ray(1+N*(i-1):N*(i+1-1),1) -z0*ones(length(hEstimator_ray.particles(:,1)),1)],[left_lower 0],"flat");
+    % particles_lla_slid = ned2lla([particles_history_slid(1+N*(i-1):N*(i+1-1),2) particles_history_slid(1+N*(i-1):N*(i+1-1),1) -z0*ones(length(hEstimator_slid.particles(:,1)),1)],[left_lower 0],"flat");
+    % 
+    % TracePose_lla = ned2lla([TracePose(2,end)' TracePose(1,end)' -z0*ones(length(TracePose(1,end)),1)],[left_lower 0],"flat");
+    % TraceEstimatedPose_lla_ray = ned2lla([TraceEstimatedPose_ray(2,end)' TraceEstimatedPose_ray(1,end)' -z0*ones(length(TraceEstimatedPose_ray(1,end)),1)],[left_lower 0],"flat");
+    % radar_pt_lla =  ned2lla([radar_pt_world(:,2) radar_pt_world(:,1) -radar_pt_world(:,3)],[left_lower 0],"flat");
+    % particle_pt_lla_ray =  ned2lla([particle_pt_world_ray(:,2) particle_pt_world_ray(:,1) -particle_pt_world_ray(:,3)],[left_lower 0],"flat");
+    % particle_pt_lla_slid =  ned2lla([particle_pt_world_slid(:,2) particle_pt_world_slid(:,1) -particle_pt_world_slid(:,3)],[left_lower 0],"flat");
+    % 
+    % % radar_pt_lla= radar_pt_lla(1,:);
+    % % particle_pt_lla_ray = particle_pt_lla_ray(1,:);
+    % % particle_pt_lla_slid = particle_pt_lla_slid(1,:);
+    % 
+    % %p1 = plot3(particles_lla_ray(:,2),particles_lla_ray(:,1),particles_lla_ray(:,3),'r.');
+    % %p2 = plot3(particles_lla_slid(:,2),particles_lla_slid(:,1),particles_lla_slid(:,3),'b.');
+    % %p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g*');
+    % %p4 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
+    % radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
+    % particle_pt_p_ray = plot3(particle_pt_lla_ray(:,2),particle_pt_lla_ray(:,1),particle_pt_lla_ray(:,3),'m.');
+    % particle_pt_p_slid = plot3(particle_pt_lla_slid(:,2),particle_pt_lla_slid(:,1),particle_pt_lla_slid(:,3),'k.');
+    % hold off;
+    % %p1.MarkerSize = 2;
+    % %p2.MarkerSize = 2;
+    % 
+    % legend({'DTED Mesh','PcRadar','PcRay','PcSlid'},Location="best")
     
     %legend({'DTED Mesh','ParticlesRay','ParticlesSlid','True Position','PF Estimation','PcTrue','PcRay','PcSlid'},Location="best")
 end
@@ -340,33 +340,35 @@ disp(['Estimation error of PF-Slid ',num2str(mean_error_slid),' meters mean and 
 % % ru = [36.2369 -112.405];  nan location
 % % ll = [36.2161 -112.424];
 % hDEM.visualizeDTED(ll,ru); hold on;
-% %hDEM.visualizeDTED(left_lower,right_upper); hold on;
-% 
-% particles_lla_ray = ned2lla([particles_history_ray(:,2) particles_history_ray(:,1) -z0*ones(length(particles_history_ray(:,1)),1)],[left_lower 0],"flat");
-% particles_lla_slid = ned2lla([particles_history_slid(:,2) particles_history_slid(:,1) -z0*ones(length(particles_history_ray(:,1)),1)],[left_lower 0],"flat");
-% 
-% TracePose_lla = ned2lla([TracePose(2,:)' TracePose(1,:)' -z0*ones(length(TracePose(1,:)),1)],[left_lower 0],"flat");
-% TraceEstimatedPose_lla = ned2lla([TraceEstimatedPose_ray(2,:)' TraceEstimatedPose_ray(1,:)' -z0*ones(length(TraceEstimatedPose_ray(1,:)),1)],[left_lower 0],"flat");
-% radar_pt_lla =  ned2lla([radar_pt_world(:,2) radar_pt_world(:,1) -radar_pt_world(:,3)],[left_lower 0],"flat");
-% particle_pt_lla_ray =  ned2lla([particle_pt_world_ray(:,2) particle_pt_world_ray(:,1) -particle_pt_world_ray(:,3)],[left_lower 0],"flat");
-% particle_pt_lla_slid =  ned2lla([particle_pt_world_slid(:,2) particle_pt_world_slid(:,1) -particle_pt_world_slid(:,3)],[left_lower 0],"flat");
-% 
-% % radar_pt_lla= radar_pt_lla(1,:);
-% % particle_pt_lla_ray = particle_pt_lla_ray(1,:);
-% % particle_pt_lla_slid = particle_pt_lla_slid(1,:);
-% 
-% p1 = plot3(particles_lla_ray(:,2),particles_lla_ray(:,1),particles_lla_ray(:,3),'r.');
-% p2 = plot3(particles_lla_slid(:,2),particles_lla_slid(:,1),particles_lla_slid(:,3),'b.');
-% p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g*');
-% p4 = plot3(TraceEstimatedPose_lla(:,2),TraceEstimatedPose_lla(:,1),TraceEstimatedPose_lla(:,3),'r+');
-% radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
-% particle_pt_p_ray = plot3(particle_pt_lla_ray(:,2),particle_pt_lla_ray(:,1),particle_pt_lla_ray(:,3),'m.');
-% particle_pt_p_slid = plot3(particle_pt_lla_slid(:,2),particle_pt_lla_slid(:,1),particle_pt_lla_slid(:,3),'y.');
-% 
-% p1.MarkerSize = 2;
-% p2.MarkerSize = 2;
-% 
-% legend({'DTED Mesh','ParticlesRay','ParticlesSlid','True Position','PF Estimation','PcTrue','PcRay','PcSlid'},Location="best")
+hDEM.visualizeDTED(left_lower,right_upper); hold on;
+
+particles_lla_ray = ned2lla([particles_history_ray(:,2) particles_history_ray(:,1) -z0*ones(length(particles_history_ray(:,1)),1)],[left_lower 0],"flat");
+particles_lla_slid = ned2lla([particles_history_slid(:,2) particles_history_slid(:,1) -z0*ones(length(particles_history_ray(:,1)),1)],[left_lower 0],"flat");
+
+TracePose_lla = ned2lla([TracePose(2,:)' TracePose(1,:)' -z0*ones(length(TracePose(1,:)),1)],[left_lower 0],"flat");
+TraceEstimatedPose_lla_ray = ned2lla([TraceEstimatedPose_ray(2,:)' TraceEstimatedPose_ray(1,:)' -z0*ones(length(TraceEstimatedPose_ray(1,:)),1)],[left_lower 0],"flat");
+TraceEstimatedPose_lla_slid = ned2lla([TraceEstimatedPose_slid(2,:)' TraceEstimatedPose_slid(1,:)' -z0*ones(length(TraceEstimatedPose_slid(1,:)),1)],[left_lower 0],"flat");
+radar_pt_lla =  ned2lla([radar_pt_world(:,2) radar_pt_world(:,1) -radar_pt_world(:,3)],[left_lower 0],"flat");
+particle_pt_lla_ray =  ned2lla([particle_pt_world_ray(:,2) particle_pt_world_ray(:,1) -particle_pt_world_ray(:,3)],[left_lower 0],"flat");
+particle_pt_lla_slid =  ned2lla([particle_pt_world_slid(:,2) particle_pt_world_slid(:,1) -particle_pt_world_slid(:,3)],[left_lower 0],"flat");
+
+% radar_pt_lla= radar_pt_lla(1,:);
+% particle_pt_lla_ray = particle_pt_lla_ray(1,:);
+% particle_pt_lla_slid = particle_pt_lla_slid(1,:);
+
+p1 = plot3(particles_lla_ray(:,2),particles_lla_ray(:,1),particles_lla_ray(:,3),'r.');
+p2 = plot3(particles_lla_slid(:,2),particles_lla_slid(:,1),particles_lla_slid(:,3),'b.');
+p3 = plot3(TracePose_lla(:,2),TracePose_lla(:,1),TracePose_lla(:,3),'g*');
+p4 = plot3(TraceEstimatedPose_lla_ray(:,2),TraceEstimatedPose_lla_ray(:,1),TraceEstimatedPose_lla_ray(:,3),'r+');
+p5 = plot3(TraceEstimatedPose_lla_slid(:,2),TraceEstimatedPose_lla_slid(:,1),TraceEstimatedPose_lla_slid(:,3),'k+');
+radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
+particle_pt_p_ray = plot3(particle_pt_lla_ray(:,2),particle_pt_lla_ray(:,1),particle_pt_lla_ray(:,3),'m.');
+particle_pt_p_slid = plot3(particle_pt_lla_slid(:,2),particle_pt_lla_slid(:,1),particle_pt_lla_slid(:,3),'y.');
+
+p1.MarkerSize = 2;
+p2.MarkerSize = 2;
+
+legend({'DTED Mesh','ParticlesRay','ParticlesSlid','True Position','PF-Ray Estimation','PF-Slid Estimation','PcTrue','PcRay','PcSlid'},Location="best")
 
 
 %%

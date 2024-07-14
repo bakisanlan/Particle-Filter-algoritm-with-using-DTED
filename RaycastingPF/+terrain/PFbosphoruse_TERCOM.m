@@ -5,7 +5,7 @@ clc; clear; close all;
 addpath(genpath('C:\Users\user\Desktop\githubdeneme\pointssim'))
 rng(5,'twister')
 %% Create simulation objects
-scene = 1;
+scene = 'BP';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -23,12 +23,12 @@ hRadar.rayRange = 1500;
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
-if scene == 1
+if scene == 'BP'
     left_lower = [41 29];
     right_upper = [41.30 29.20];
     hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
     modelF = 1;
-elseif scene == 2
+elseif scene == 'GC'
     left_lower = [36.18777778 -112.54111111];
     right_upper = [36.38000000 -112.31166667];
     hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
@@ -54,11 +54,12 @@ hReferenceMapScanner.DTED       = hRadar.DTED;
 
 x0      = 1500;
 y0      = 1500;
-z0      = 500;
+z0      = 300;
+% psi0    = 20*pi/180;
 psi0    = 20*pi/180;
 Ts      = 2;
-hAircraft.Pose          = [5*x0; 6*y0; z0; psi0];
-phi_r = 60;
+hAircraft.Pose          = [x0; y0; z0; psi0];
+phi_r = 0;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
@@ -72,7 +73,7 @@ var = [];
 
 % Estimator settings
 iPart = 1;
-N = 200;
+N = 100;
 range_part = 500;
 alt_std = 3;
 raycast_flag = false;
@@ -91,17 +92,18 @@ hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 simTime = 0;
 Tf = 20;
 loop_sampling = Tf/Ts;
-u = [100; 0];
-
+% u = [100; 0];
 i = 1;
-Tf = 80;
+Tf = 200;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
 
 while simTime < Tf
 
-    %u = [100; 2*pi/500];
+    u = [100; 2*pi/500];
+    %u = [100; 0];
+
 
     %hAircraft.move(u(i,:),2);
     hAircraft.move(u,modelF);
@@ -109,8 +111,8 @@ while simTime < Tf
     % Radar scan
     hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
-    %hRadar.scanTerrain;
-    hRadar.scanAltimeter;
+    hRadar.scanTerrain;
+    %hRadar.scanAltimeter;
 
     % Estimate using x-y grid overlaying and not full ray casting
     tic
@@ -118,7 +120,7 @@ while simTime < Tf
     %                                 u(i,:),hRadar.ptCloud, false,2);
 
     param = hEstimator.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
-                                    u,hRadar.ptCloud, raycast_flag,modelF);
+                                    u,hRadar.ptCloud, raycast_flag, modelF);
 
     % param2 = hEstimator_slid_COR.getEstimate([hRadar.positionLiDAR; hRadar.orientationLiDAR], ...
     %                                 u(i,:),hRadar.ptCloud, false,2);
@@ -234,27 +236,34 @@ particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_
 %p2.MarkerSize = 1;
 
 legend({'DTED Mesh','Particles','True Position','PF Estimation','Radar PC','PF Radar PC'},Location="best")
+%%
+figure(55); hold on;
+plot(TracePose(1,:),TracePose(2,:),'b:o','MarkerSize',10);
+plot(TraceEstimatedPose(1,:),TraceEstimatedPose(2,:),'rx','MarkerSize',5);
+plot(particles_history(:,1),particles_history(:,2),'k.')
+daspect([1 1 1])
+pbaspect([1 1 1])
+legend('Truth', 'Estimated');
 
 %%
-
-Z = cell2mat(hEstimator.elev_particles_pc);
-radar_Z = cell2mat(hEstimator.radar_Z);
-tz = 1:length(radar_Z);
-MAE_hist = hEstimator.MAE_particles_hist;
-MAE_hist_b1 = hEstimator.MAE_particles_hist_b1;
-
-%plot(tz,radar_Z,'g',tz,Z,'b',tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
-
-
-figure(3)
-subplot(1,2,1)
-plot(tz,radar_Z,'g',tz,Z,'b')
-subplot(1,2,2)
-plot(tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
-
-
-figure(4)
-radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
-hold on
-%   particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');
-
+% 
+% Z = cell2mat(hEstimator.elev_particles_pc);
+% radar_Z = cell2mat(hEstimator.radar_Z);
+% tz = 1:length(radar_Z);
+% MAE_hist = hEstimator.MAE_particles_hist;
+% MAE_hist_b1 = hEstimator.MAE_particles_hist_b1;
+% 
+% %plot(tz,radar_Z,'g',tz,Z,'b',tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
+% 
+% 
+% figure(3)
+% subplot(1,2,1)
+% plot(tz,radar_Z,'g',tz,Z,'b')
+% subplot(1,2,2)
+% plot(tz,MAE_hist,'r',tz,MAE_hist_b1,'c')
+% 
+% 
+% figure(4)
+% radar_pt_p = plot3(radar_pt_lla(:,2),radar_pt_lla(:,1),radar_pt_lla(:,3),'c.');
+% hold on
+% %   particle_pt_p_ray = plot3(particle_pt_lla(:,2),particle_pt_lla(:,1),particle_pt_lla(:,3),'m.');

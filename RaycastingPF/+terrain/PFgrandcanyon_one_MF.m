@@ -5,7 +5,7 @@ clc; clear; close all;
 addpath(genpath('C:\Users\user\Desktop\githubdeneme\pointssim'))
 rng(5,'twister')
 %% Create simulation objects
-scene = 2;
+scene = 'GC';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -20,9 +20,9 @@ hRadar.rayRange = 1500;
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
-if scene == 1
+if scene == 'BP'
     hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
-elseif scene == 2
+elseif scene == 'GC'
     left_lower = [36.18777778 -112.54111111];
     right_upper = [36.38000000 -112.31166667];
     hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
@@ -78,7 +78,7 @@ var = [];
 
 % Estimator settings
 iPart = 100;
-N = 500;
+N = 100;
 range_part = 500;
 alt_std = 3;
 raycast_flag = false;
@@ -101,7 +101,7 @@ u = [topgun_traj_velocity(1:length(topgun_traj_velocity)/loop_sampling:end)...
      topgun_traj_heading(1:length(topgun_traj_heading)/loop_sampling:end)];
 i = 1;
 
-Tf = 200;
+Tf = 180;
 particles_history(1:N,:) = hEstimator.particles(:,1:2);
 %particles_history_slid(1:N,:) = hEstimator_slid_COR.particles(:,1:2);
 
@@ -260,3 +260,13 @@ p1.MarkerSize = 1;
 %p2.MarkerSize = 1;
 
 legend({'DTED Mesh','Particles','True Position','PF Estimation','Radar PC','PF Radar PC'},Location="best")
+
+%%
+
+figure(32); hold on;
+plot(TracePose(1,:),TracePose(2,:),'b:o','MarkerSize',10);
+plot(TraceEstimatedPose(1,:),TraceEstimatedPose(2,:),'rx','MarkerSize',5);
+plot(particles_history(:,1),particles_history(:,2),'k.')
+daspect([1 1 1])
+pbaspect([1 1 1])
+legend('Truth', 'Estimated');

@@ -16,22 +16,22 @@ classdef DigitalElevationModel < handle
     end
 
     methods
-        function obj = DigitalElevationModel(scene)
+        function obj = DigitalElevationModel(area)
             %DigitalElevationModel Constructs a DEM terrain object.
 
             obj.mapWidth = 1000;
 
-            % Load elevation data from file
+            % Load elevation data from fill
 
-            if scene == 1
-            obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
-                'data/n41_e029_1arc_v3.dt2'));
-            elseif scene ==2
-
-            obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
-                'data/n36_w113_1arc_v3.dt2'));
+            if strcmpi(area,'BP')
+                obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
+                    'data/n41_e029_1arc_v3.dt2'));
+            elseif strcmpi(area,'GC')
+               obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
+                    'data/n36_w113_1arc_v3.dt2'));
+            else
+                error('Enter a valid area name.')
             end
-
         end
 
         function loadData(obj,filename)
@@ -90,7 +90,7 @@ classdef DigitalElevationModel < handle
             dted = [{x}, {y}, {z}];
         end
 
-        function visualizeDTED(obj,lla,ll0)
+        function visualizeDTED(obj,left_lower_lla,right_upper_lla)
             %visualizeDTED For testing purposes.
             %   This file loads and visualize DTED at (41N, 29E) of the
             %   Bosphorus.
@@ -102,7 +102,7 @@ classdef DigitalElevationModel < handle
 
             hF2 = figure; clf;
             % title('Aircraft DTED Path Map')
-            [As, Rs, lats, lons] = slice(obj,lla,ll0);
+            [As, Rs, lats, lons] = slice(obj,left_lower_lla,right_upper_lla);
             % usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
             % geoshow(flip(As),Rs,"DisplayType","surface");
             obj.cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;

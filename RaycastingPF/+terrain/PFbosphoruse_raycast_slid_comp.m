@@ -5,7 +5,7 @@ clc; clear; close all;
 
 %rng(1,'twister')
 %% Create simulation objects
-scene = 1;
+scene = 'BP';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -20,12 +20,12 @@ hRadar.rayRange = 1500;
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
-if scene == 1
+if scene == 'BP'
     left_lower = [41 29];
     right_upper = [41.30 29.20];
     hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
     modelF = 1;
-elseif scene == 2
+elseif scene == 'GC'
     left_lower = [36.18777778 -112.54111111];
     right_upper = [36.38000000 -112.31166667];
     hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
