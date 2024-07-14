@@ -10,7 +10,7 @@ classdef StateEstimatorPF < handle
 
         hReferenceMapScanner    % Scanner to be used by the estimator
 
-        % Particle Filter Settings
+        % Particle Filter Variables
         N
         x_span
         y_span
@@ -19,26 +19,18 @@ classdef StateEstimatorPF < handle
         particles
         exp_rate
         dt
-        elev_particles_pc
         weights
         meann
         var
-        Zr
         radar_Z
         particles_pc
-        mean_sqrd_error
-        corr
-        non_idx
-        batch_size
-        batch_n
-        batch_Zr
-        MAE_nthBatch_ithPart
         MAE_particles
-
-        PARAMS
-        FITTING
-        QUANT
-        simparam
+        MAE_particles_hist
+        batch_size
+        batch_n_Part
+        MAE_Batch_Part
+        old_index
+        count_est
     end
     %% PF Functions
     methods (Access = public)
@@ -53,74 +45,36 @@ classdef StateEstimatorPF < handle
             self.exp_rate = exp_rate;
             self.dt = dt;
             self.batch_size = batch_size;
-            self.batch_n = 1;
-            %self.process_std = [5 0.02];
+            self.batch_n_Part = zeros(self.N,1);
             self.process_std = [5 0.02];
-
+            %self.process_std = [0 0];
+            self.old_index = 1:self.N;
+            self.count_est = 1;
 
             % Create uniformly distributed particles around aircraft with
             % the span range
-
-            self.particles = self.create_uniform_particles(self.N,init_pos,[self.x_span ; self.y_span]);
+            self.particles = self.create_particles(self.N,init_pos,[self.x_span ; self.y_span]);
             self.weights = ones(self.N,1)/self.N;
 
-            % % Configurations of similarity
-            % PARAMS.ATTRIBUTES.GEOM = true;
-            % PARAMS.ATTRIBUTES.NORM = true;
-            % PARAMS.ATTRIBUTES.CURV = true;
-            % PARAMS.ATTRIBUTES.COLOR = false;
-            % 
-            % PARAMS.ESTIMATOR_TYPE = {'VAR'};
-            % PARAMS.POOLING_TYPE = {'Mean'};
-            % PARAMS.NEIGHBORHOOD_SIZE = 12;
-            % PARAMS.CONST = eps(1);
-            % PARAMS.REF = 0;
-            % self.PARAMS = PARAMS;
-            % 
-            % FITTING.SEARCH_METHOD = 'knn';
-            % knn = 12;
-            % FITTING.SEARCH_SIZE = knn;
-            % self.FITTING = FITTING;
-            % 
-            % QUANT.VOXELIZATION = false;
-            % QUANT.TARGET_BIT_DEPTH = 9;
-            % self.QUANT = QUANT;
         end
 
         function param_estimate = getEstimate(self,prior,u,ptCloudRadar,flagRAYCAST, modelF)
             self.priorPose = prior;
-
             self.particle_step(u,modelF);
 
             %Finding MAE(mean absolute error) correlation of each 
             %particle w.r.t. radar Z value 
             self.find_MAE_particles(ptCloudRadar,flagRAYCAST);  % Nx81
 
-            if self.batch_n == self.batch_size
+            % update weight based on MAE
+            self.update_weights(ptCloudRadar,flagRAYCAST)
 
-                % update weight based on MAE
-                self.update_weights(ptCloudRadar,flagRAYCAST)
+            % store mean and var value
+            [meann,var] = self.estimate();
+            param_estimate = [meann,var];
 
-                % store mean and var value
-                [meann,var] = self.estimate();
-                param_estimate = [meann,var];
-
-                % % resetting current batch
-                % self.batch_n = 1;
-            else 
-                % counting number of measurement in batch
-                self.batch_n = self.batch_n + 1;
-
-                %param_estimate = [];
-
-                % update weight based on MAE
-                self.update_weights(ptCloudRadar,flagRAYCAST)
-
-                % store mean and var value
-                [meann,var] = self.estimate();
-                param_estimate = [meann,var];
-            end
-
+            % counting estimation times
+            self.count_est = self.count_est + 1;
         end
 
     end
@@ -128,7 +82,7 @@ classdef StateEstimatorPF < handle
     %% Functions that is used in Class as subfunctions
     methods (Access = private)
 
-        function particles = create_uniform_particles(self,n_partc,init_pos,span_partc)
+        function particles = create_particles(self,n_partc,init_pos,span_partc)
             % create particles uniform distrubition near to the guess of aircraft
             % gps lost position
 
@@ -136,8 +90,14 @@ classdef StateEstimatorPF < handle
             y_range_partc = [init_pos(2)-0.5*span_partc(2) init_pos(2)+0.5*span_partc(2)];
 
             particles = zeros(n_partc,4);
+            % %uniform distrubition
             particles(:, 1) = unifrnd(x_range_partc(1), x_range_partc(2), [n_partc 1]);
             particles(:, 2) = unifrnd(y_range_partc(1), y_range_partc(2), [n_partc 1]);
+
+            % % %gaussian dstrubition
+            % particles(:, 1) = normrnd(init_pos(1), span_partc(1)*0.25, [n_partc 1]);
+            % particles(:, 2) = normrnd(init_pos(2), span_partc(1)*0.25, [n_partc 1]);
+
             particles(:, 3) = init_pos(3);
             particles(:, 4) = init_pos(4);
         end
@@ -184,8 +144,6 @@ classdef StateEstimatorPF < handle
                 self.particles(:, 3) = self.particles(:, 3) + self.dt .* dPose3_dt;
                 self.particles(:, 4) = u(:,2);
             end
-
-            %disp(self.particles(:,1))
         end
 
         function update_weights(self,ptCloudRadar,flagRAYCAST)
@@ -194,10 +152,9 @@ classdef StateEstimatorPF < handle
             % 
             % Store real radar elevation data for comparing with particles point
             % cloud radar elevation data
-            %Zr = ptCloudRadar.Location(:,3);  % 81x1
 
             % Below code block is the core of Particle Filter algorithm.
-            % For each particle, we are taking mean of all 81 point cloud
+            % For each particle, we are taking mean of all n point cloud
             % radar elevation pdf(radar_elev) value. This mean pdf value
             % gives us the probability that the surface scanned from the
             % particle is the same as the actual scanned surface. After
@@ -206,24 +163,12 @@ classdef StateEstimatorPF < handle
             % estimate(Bayes theorem)
             %
 
-            %self.mean_sqrd_error = sqrt(mean((self.elev_particles_pc - self.Zr').^2,2));
-            % a = mean((self.elev_particles_pc - self.Zr').^2,2);
-            % a
-
-            %self.alt_std = min(mean_sqrt_error);
-            %corr = -(self.Zr'*self.elev_particles_pc) / sqrt((self.Zr'*self.elev_particles_pc)*(self.elev_particles_pc'*self.elev_particles_pc));
-
             % find means of batch elements for finding final MAE
-            self.MAE_particles = mean(self.MAE_nthBatch_ithPart,2);
-            
-            % drop first column of batch array after each iteration
+            self.MAE_particles = cellfun(@mean,self.MAE_Batch_Part);
+            self.MAE_particles_hist(:,self.count_est) = self.MAE_particles;
 
-            if self.batch_n == self.batch_size
-                self.MAE_nthBatch_ithPart(:,1) = [];
-            end
-
-            %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
-            self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.MAE_particles./self.alt_std).^2);
+            self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.MAE_particles./self.alt_std).^2);
+            %self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.MAE_particles./self.alt_std).^2);
 
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
@@ -233,174 +178,100 @@ classdef StateEstimatorPF < handle
             % If condition is provided, we are resampling our particles
             % with Systematic resampling methods.
             if self.neff < self.N/2
-            %if false
                 indexes = self.resample_Systematic;
                 self.resample(indexes)
             end
-              
-
-            %disp(size(Zr'))
-            %disp((self.mean_sqrd_error))
-            %disp(self.corr)
-            %disp(self.weights)
-            % fp = [self.mean_sqrd_error self.weights];
-            % fp
-            %fprintf('mse %.4f, weights %.4f \n',fp);
-
         end
 
         function find_MAE_particles(self,ptCloudRadar,flagRAYCAST)
 
             % updating reference map scanner via prior estimate
-            self.hReferenceMapScanner.positionLiDAR    = self.priorPose(1:3,1);
+            % Assume that altitude and attitudes are known
+            self.hReferenceMapScanner.positionLiDAR(3)  = self.priorPose(3,1);
             self.hReferenceMapScanner.orientationLiDAR = self.priorPose(4:6,1);
-
-
-            % % true altitude point cloud data
-            % self.Zr = ptCloudRadar.Location(:,3);
-            % n = numel(self.Zr);
 
             for i=1:self.N
 
-                % true altitude point cloud data
-                self.Zr = ptCloudRadar.Location(:,3);
-                n = numel(self.Zr);
+                % aircraft terrain elevation point cloud data
+                Zr_s = ptCloudRadar.s.Location(:,3);
+                Zr_w = ptCloudRadar.w.Location(:,3);
+                n = numel(Zr_s);
 
                 x_particle = self.particles(i,1);
                 y_particle = self.particles(i,2);
                 self.hReferenceMapScanner.positionLiDAR([1, 2]) = [x_particle y_particle];
-                %disp(self.hReferenceMapScanner.positionLiDAR)
                 if flagRAYCAST
-                    self.hReferenceMapScanner.scanTerrain(false);
-                    Z = self.hReferenceMapScanner.ptCloud.Location(:,3);
-                    particle_pc = self.hReferenceMapScanner.ptCloud.Location(:,1:2);
-                else
-                    XrYr = ptCloudRadar.Location(:,1:2);
-                    Z = zeros(n,1);
-                    for j=1:n
-                        Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
-                    end
-                    particle_pc = XrYr;
-                end
 
-                % TO RESOLVE LATER. Decide the best way to treat NANs.
-                idx = or(isnan(Z),isnan(self.Zr));
-                flag = 1;
-                if flag == 0
-                    % Using world frame, with NaNs replaced by zeros
-                    Z = Z + self.hReferenceMapScanner.positionLiDAR(3); self.Zr = self.Zr + self.hReferenceMapScanner.positionLiDAR(3);
-                    Z(idx) = 0;
-                    self.Zr(idx) = Z(idx);
-                elseif flag == 1
-                    % Deleting NaNs
-                    self.non_idx(i,:) = idx;
-                    Z(idx) = [];
-                    self.Zr(idx) = [];
-                    %size(particle_pc)
-                    particle_pc(idx,:) = [];
-                    %size(particle_pc)
-                elseif flag == 2
-                    % Using local frame with NaNs replaced by zero w.r.t. sensor frame
-                    Z(idx) = 0 - self.hReferenceMapScanner.positionLiDAR(3);
-                    self.Zr(idx) = Z(idx);
-                end
-
-                %self.elev_particles_pc = zeros(self.N,length(Z));
-
-                self.elev_particles_pc{i} = Z; 
-
-                %size(self.elev_particles_pc)
-
-                % self.elev_particles_pc{i,self.batch_n} = Z; 
-                % self.batch_Zr{self.batch_n} = self.Zr;
-                
-                %self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
-                if (self.batch_n ~= self.batch_size)
-                    if ~isempty(self.Zr)
-                        self.MAE_nthBatch_ithPart(i,self.batch_n) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                    % When Radar use RadarAltimeter for scaning terrain,
+                    % ReferenceMapScanner also should use RadarAltimeter
+                    if length(Zr_s) ~= 1
+                        self.hReferenceMapScanner.scanTerrain(false);
                     else
-                        self.MAE_nthBatch_ithPart(i,self.batch_n) = 999;
+                        self.hReferenceMapScanner.scanAltimeter;
+                    end
+
+                    Zs = self.hReferenceMapScanner.ptCloud.s.Location(:,3);
+                    Zw = self.hReferenceMapScanner.ptCloud.w.Location(:,3);
+
+                    particle_pc_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:3);
+                else
+                    XrYr_s = ptCloudRadar.s.Location(:,1:2);
+                    particle_pc_w = zeros(n,3);
+
+                    Zs = zeros(n,1);
+                    Zw = zeros(n,1);
+
+                    % Raycasting(theta=90) method for finding elevation value in sliding
+                    for j=1:n
+                        [Zs(j), Zw(j)] = self.hReferenceMapScanner.readAltimeter([XrYr_s(j,1);XrYr_s(j,2);Zr_s(j)]);
+                        particle_pc_w(j,:) = self.hReferenceMapScanner.ptCloud.w.Location(:,1:3);
+                    end
+                    
+                    % Interpolation method for finding elevation value in sliding
+                    % [Zs, Zw] = self.hReferenceMapScanner.readAltimeter_interp([XrYr_s Zr_s]);
+                    % particle_pc_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:3);
+                end
+
+                % Decide the best way to treat NANs.
+                idx = or(isnan(Zw),isnan(Zr_w));
+                % Deleting NaNs
+                Zw(idx) = [];
+                Zr_w(idx) = [];
+                particle_pc_w(idx,:) = [];
+
+                % TERCOM like historical correlation if batch_size ~=1
+                % If batch_size ==1, below if condition will be
+                % unnecessary but it will work.
+                if (self.batch_n_Part(i) ~= self.batch_size)
+                    % increase batch_n of ith particle
+                    self.batch_n_Part(i) = self.batch_n_Part(i) + 1;
+                    if ~isempty(Zr_w)
+                        self.MAE_Batch_Part{i,1}(self.batch_n_Part(i)) = mean(abs(Zw - Zr_w),1);
+                    else
+                        self.MAE_Batch_Part{i,1}(self.batch_n_Part(i)) = 999;
                     end
                 else
                     % drop first column of batch in every iteration
-                    %self.MAE_nthBatch_ithPart(:,1) = [];
-                    if ~isempty(self.Zr)
+                    self.MAE_Batch_Part{i,1}(1) = [];
+                    if ~isempty(Zr_w)
                         % add new MAE to end of batch array
-                        self.MAE_nthBatch_ithPart(i,self.batch_size) =  mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                        self.MAE_Batch_Part{i,1}(self.batch_size) =  mean(abs(Zw - Zr_w),1);
                     else
-                        self.MAE_nthBatch_ithPart(i,self.batch_size) = 999;
+                        self.MAE_Batch_Part{i,1}(self.batch_size) = 999;
                     end
                 end
-                self.particles_pc{i} = [particle_pc Z];
-                self.radar_Z{i} = self.Zr;
 
-                % 
-                % idx_err = isnan(self.mean_sqrd_error);
-                % self.mean_sqrd_error(idx_err) = 999;
+                % Storing particles point cloud measurement data in world 
+                % frame for visualization
+                self.particles_pc{i} = particle_pc_w;
 
-                %mean((self.elev_particles_pc{i} - self.Zr).^2)
-                %size(self.elev_particles_pc{i} - self.Zr)
-                %self.elev_particles_pc{i}
-                %self.corr(i,1) = -(self.Zr'*Z) / sqrt((self.Zr'*Z)*(Z'*Z));
+                % Dealing empyt value with replacing NaN
+                if isempty(self.particles_pc{i})
+                    self.particles_pc{i} = NaN(1,3);
+                end
 
-                % % lineer similarity corr
-                % if length(Z) > 1
-                %     cor_matrix = corrcoef(self.Zr,Z); 
-                %     self.corr(i,1) = cor_matrix(1,2);
-                % end
-
-                % cosine similarity corr
-                %self.corr(i,1) = (self.Zr'*Z) / sqrt((self.Zr'*self.Zr)*(Z'*Z)); 
-               
-
-                % penalize the particles that have low corr coef from
-                % threshold for robustness
-                
-
-                % if self.corr(i,1) < 0.2
-                %     %self.mean_sqrd_error(i,1) = self.mean_sqrd_error(i,1) + 20*self.alt_std;
-                %     self.mean_sqrd_error(i,1) = inf;
-                % end
-
-                %Z
-
-                %
-                % % Sort geometry
-                % radarPC = ptCloudRadar;
-                % particlePC = pointCloud([self.particles_pc{i}]);
-                % 
-                % A = radarPC;
-                % B = particlePC;
-                % 
-                % [geomA, ~] = sortrows(A.Location);
-                % A = pointCloud(geomA);
-                % 
-                % [geomB, ~] = sortrows(B.Location);
-                % B = pointCloud(geomB);
-                % 
-                % % Point fusion
-                % A = pc_fuse_points(A);
-                % B = pc_fuse_points(B);
-                % 
-                % % Normals and curvatures estimation
-                % [normA, curvA] = pc_estimate_norm_curv_qfit(A, self.FITTING.SEARCH_METHOD, self.FITTING.SEARCH_SIZE);
-                % [normB, curvB] = pc_estimate_norm_curv_qfit(B, self.FITTING.SEARCH_METHOD, self.FITTING.SEARCH_SIZE);
-                % 
-                % % Set custom structs with required fields
-                % sA.geom = A.Location;
-                % sB.geom = B.Location;
-                % if self.PARAMS.ATTRIBUTES.NORM
-                %     sA.norm = normA;
-                %     sB.norm = normB; 
-                % end
-                % if self.PARAMS.ATTRIBUTES.CURV
-                %     sA.curv = curvA;
-                %     sB.curv = curvB;
-                % end
-                % 
-                % % Compute structural similarity scores
-                % [pssim] = pointssim(sA, sB, self.PARAMS);
-                % self.simparam{i} = pssim;
+            % Storing Radar elevation value for every estimation history
+            self.radar_Z{1,self.count_est} = Zr_w;
 
             end
         end
@@ -410,8 +281,8 @@ classdef StateEstimatorPF < handle
             % Taking weighted mean and var of particles for estimation
             % returns mean and variance of the weighted particles
             pos = self.particles(:,:);
-            meann = sum(pos .* self.weights) / sum(self.weights);
-            var  = sum((pos - meann).^2 .* self.weights) / sum(self.weights);
+            meann = sum(pos .* self.weights,1) / sum(self.weights);
+            var  = sum((pos - meann).^2 .* self.weights,1) / sum(self.weights);
 
             self.meann = meann;
             self.var = sqrt(var(1)^2 + var(2)^2);
@@ -447,45 +318,30 @@ classdef StateEstimatorPF < handle
 
             % Resampling from indexes that is produces by sampling methods
 
-            % unique_idx = unique(indexes);
-            % n_dead_particles = self.N - length(unique_idx);
-            %
-            % range_part = 2000;
-            % %n_dead_particles
-            % x_range_rand_partc =  [self.meann(1) - 0.5*range_part ...
-            %                       self.meann(1) + 0.5*range_part];
-            %
-            % y_range_rand_partc =  [self.meann(2) - 0.5*range_part ...
-            %                       self.meann(2) + 0.5*range_part];
-            %
-            % range_rand_partc = [x_range_rand_partc ; y_range_rand_partc];
-            % rand_partc = self.create_uniform_particles(n_dead_particles,range_rand_partc);
-            %
-            % self.particles = self.particles(unique_idx,:);
-            % self.particles = [self.particles ; rand_partc];
-
             % Exploration phase
             % When resampling is activated, new samples are chosed by indexed
             % array that is produced by resampling method with some
             % 1-exploration rate. And remaining particles are created
-            % uniform randomly in range of last mean value with exploration rate.
+            % uniform randomly in range of last mean estimated value with exploration rate.
             if (self.exp_rate ~= 0) && ~isempty(self.meann) 
-
-                n_rand_partc = round(self.N*self.exp_rate);
-                sample_indx = randsample(indexes, self.N - n_rand_partc);
-
-                range_rand_part = [2*self.x_span ; 2*self.y_span];
-
-                %disp(self.weights)
-
-                rand_partc = self.create_uniform_particles(n_rand_partc,self.meann,range_rand_part);
-
-                self.particles = [self.particles(sample_indx,:) ; rand_partc];
+                n_random_particles = round(self.N*self.exp_rate);
+                indexes = randsample(indexes, self.N - n_random_particles);
+                bounds_random_particles = [2*self.x_span ; 2*self.y_span];
+                rand_particles = self.create_particles(n_random_particles,self.meann,bounds_random_particles);
+                self.particles = [self.particles(indexes,:) ; rand_particles];
             else
-                disp(indexes)
                 self.particles = self.particles(indexes,:);
             end
 
+            disp('---------------------------------------')
+            disp('--------------Resampled----------------')
+            disp('---------------------------------------')
+
+            % reset batch and batch_n of resampled particle
+            self.MAE_Batch_Part(:) = {[]};
+            self.batch_n_Part(:) = 0;
+
+            % Reset weights of particles
             self.weights = ones(length(self.particles),1)/length(self.particles);
         end
 
