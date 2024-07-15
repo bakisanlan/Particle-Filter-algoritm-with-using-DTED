@@ -67,11 +67,11 @@ classdef StateEstimatorPF < handle
             self.find_MAE_particles(ptCloudRadar,flagRAYCAST);  % Nx81
 
             % update weight based on MAE
-            self.update_weights(ptCloudRadar,flagRAYCAST)
+            self.update_weights()
 
-            % store mean and var value
-            [meann,var] = self.estimate();
-            param_estimate = [meann,var];
+            % get mean and var value and store
+            self.estimate();
+            param_estimate = [self.meann, self.var];
 
             % counting estimation times
             self.count_est = self.count_est + 1;
@@ -103,9 +103,6 @@ classdef StateEstimatorPF < handle
         end
 
         function particle_step(self, u, modelF)
-            rng(5,'twister')
-
-
             %Move the aircraft based on the provided input.
             %
             %   The kinematics are represented by
@@ -115,7 +112,7 @@ classdef StateEstimatorPF < handle
             %    dpsi/dt    = omega;
             %
             %    u = [v; omega]
-
+            rng(5,'twister')
             u = reshape(u, numel(u),1); % column vector
             noise = (randn(self.N, 2) .* self.process_std);
             u = u' + noise; % 
@@ -146,8 +143,7 @@ classdef StateEstimatorPF < handle
             end
         end
 
-        function update_weights(self,ptCloudRadar,flagRAYCAST)
-
+        function update_weights(self)
             % Update weight based on pdf value
             % 
             % Store real radar elevation data for comparing with particles point
@@ -184,7 +180,6 @@ classdef StateEstimatorPF < handle
         end
 
         function find_MAE_particles(self,ptCloudRadar,flagRAYCAST)
-
             % updating reference map scanner via prior estimate
             % Assume that altitude and attitudes are known
             self.hReferenceMapScanner.positionLiDAR(3)  = self.priorPose(3,1);
@@ -276,22 +271,18 @@ classdef StateEstimatorPF < handle
             end
         end
 
-        function [meann,var] = estimate(self)
-
+        function estimate(self)
             % Taking weighted mean and var of particles for estimation
             % returns mean and variance of the weighted particles
             pos = self.particles(:,:);
-            meann = sum(pos .* self.weights,1) / sum(self.weights);
-            var  = sum((pos - meann).^2 .* self.weights,1) / sum(self.weights);
-
-            self.meann = meann;
-            self.var = sqrt(var(1)^2 + var(2)^2);
+            self.meann = sum(pos .* self.weights,1) / sum(self.weights);
+            var_vec  = sum((pos - self.meann).^2 .* self.weights,1) / sum(self.weights);
+            self.var = sqrt(var_vec(1)^2 + var_vec(2)^2);
         end
 
         % There are many resampling methods but we choose Systematic
         % resample
         function indx = resample_Systematic(self)
-
             Q = cumsum(self.weights);
             indx = zeros(1);
             T = linspace(0,1-1/self.N,self.N) + rand(1)/self.N;
@@ -315,7 +306,6 @@ classdef StateEstimatorPF < handle
         end
 
         function resample(self,indexes)
-
             % Resampling from indexes that is produces by sampling methods
 
             % Exploration phase

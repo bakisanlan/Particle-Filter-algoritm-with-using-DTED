@@ -79,10 +79,10 @@ range_part = 500;
 alt_std = 3;
 raycast_flag = false;
 batch_size = 1;
-hEstimator_ray = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+hEstimator_ray = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator_ray.hReferenceMapScanner = hReferenceMapScanner;
 
-hEstimator_slid = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+hEstimator_slid = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator_slid.hReferenceMapScanner = hReferenceMapScanner;
 
 %% Game Loop
@@ -92,7 +92,7 @@ simTime = 0;
 u = [0; 0];
 i = 1;
 
-Tf = 10;
+Tf = 20;
 particles_history_ray(1:N,:) = hEstimator_ray.particles(:,1:2);
 particles_history_slid(1:N,:) = hEstimator_slid.particles(:,1:2);
 
@@ -114,8 +114,8 @@ while simTime < Tf
     hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
     %hRadar.positionLiDAR    =  [18920.5565878799 ; 5600.82778773042 ; z0];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
-    hRadar.scanTerrain(false);
-    %hRadar.scanAltimeter;
+    %hRadar.scanTerrain(false);
+    hRadar.scanAltimeter;
 
     % Estimate using x-y grid overlaying and not full ray casting
     tic

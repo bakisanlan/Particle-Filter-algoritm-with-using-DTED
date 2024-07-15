@@ -5,7 +5,7 @@ clc; clear; close all;
 addpath(genpath('C:\Users\user\Desktop\githubdeneme\pointssim'))
 rng(5,'twister')
 %% Create simulation objects
-scene = 'BP';
+scene = 'GC';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -20,10 +20,8 @@ hRadar.dtheta   = 10;
 hRadar.dpsi     = 10;
 hRadar.rayRange = 1500;
 
-% DEM settings
-% Downsampled by 10, thus 300m resolution
-% bosphorus
-dt      = 2;
+% Simulation Settings
+dt = 2;
 tf = 200;
 
 if scene == 'BP'
@@ -80,21 +78,20 @@ hReferenceMapScanner.dpsi       = hRadar.dpsi;
 hReferenceMapScanner.rayRange   = hRadar.rayRange;
 hReferenceMapScanner.DTED       = hRadar.DTED;
 
-dt      = 2;
+% Aircraft setting
 hAircraft.Pose          = [x0; y0; z0; psi0];
 phi_r = 0;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = dt;
-hAircraft.WithNoise     = true;      % Enables wind disturbance
+hAircraft.WithNoise     = false;      % Enables wind disturbance
 flagRAYCAST = false;
 
 TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
 var = [];
 
-%% PF Inıt
-
+%% PF Init
 span_partc = 500;
 x_range_partc = [hAircraft.Pose(1)-0.5*span_partc(1) hAircraft.Pose(1)+0.5*span_partc(1)];
 y_range_partc = [hAircraft.Pose(2)-0.5*span_partc(1) hAircraft.Pose(2)+0.5*span_partc(1)];
@@ -118,9 +115,7 @@ pf.MeasurementLikelihoodFcn = @particles_likelihood;
 lastBestGuess = hAircraft.Pose';
 particles_history(1:N,:) = pf.Particles(:,1:2);
 
-
 %% Game loop
-
 simulationTime = 0;
 i=1;
 while simulationTime < tf % if time is not up
@@ -134,14 +129,14 @@ while simulationTime < tf % if time is not up
     hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
     hRadar.scanTerrain;
-    %hRadar.scanAltimeter;
+    hRadar.scanAltimeter;
+    hReferenceMapScanner.flagScanAltimeter = hRadar.flagScanAltimeter;
 
     measurement = hRadar.ptCloud;
 
     tic;
     % Predict the carbot pose based on the motion model
     [statePred, covPred] = predict(pf, dt, uCmd(i,:),modelF);
-
 
     % If measurement is available, then call correct, otherwise just use
     % predicted result
@@ -157,6 +152,10 @@ while simulationTime < tf % if time is not up
     lastBestGuess = stateCorrected(1:2);
     disp (['Estimated [x,y]: ' '[ ' num2str(lastBestGuess(1:2)) ' ]' newline]);
 
+    hLocationPoint.XData = hAircraft.Pose(1);
+    hLocationPoint.YData = hAircraft.Pose(2);
+    hLocationPoint.ZData = hAircraft.Pose(3);
+    snapnow
 
     particles_history(1+N*(i):N*(i+1),:) = pf.Particles(:,1:2);
     hAircraft.EstimatedPose = [lastBestGuess(1); lastBestGuess(2)];
@@ -167,7 +166,7 @@ while simulationTime < tf % if time is not up
     simulationTime = simulationTime + dt;
     i = i+1;
 end
-%%
+%% Graph
 valid_index = ~isnan(TraceEstimatedPose);
 TracePose = TracePose(1:2,:);
 diff = reshape(TracePose(logical([[0; 0] valid_index])),2,[]) - reshape(TraceEstimatedPose(valid_index),2,[]);
@@ -190,9 +189,7 @@ daspect([1 1 1])
 pbaspect([1 1 1])
 legend('Truth', 'Estimated');
 
-
 %% Motion Prediction for Particles
-
 function predictParticles = particle_step(pf, prevParticles, varargin) %#ok<INUSL>
 %exampleHelperCarBotStateTransition Propagate particles based on given motion model.
 rng(5,'twister')

@@ -5,7 +5,7 @@ clc; clear; close all;
 
 rng(5,'twister')
 %% Create simulation objects
-scene = 2;
+scene = 'GC';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -20,9 +20,9 @@ hRadar.rayRange = 1500;
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
-if scene == 1
+if scene == 'BP'
     hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
-elseif scene == 2
+elseif scene == 'GC'
     left_lower = [36.18777778 -112.54111111];
     right_upper = [36.38000000 -112.31166667];
     hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
@@ -65,7 +65,7 @@ psi0    = topgun_traj_heading(1);
 
 Ts      = 2;
 hAircraft.Pose          = [x0; y0; z0; psi0];
-phi_r = 0;
+phi_r = 60;
 hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
 hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
 hAircraft.dt            = Ts;
@@ -78,14 +78,14 @@ var_slid = [];
 
 % Estimator settings
 iPart = 1;
-N = 100;
+N = 500;
 range_part = 500;
 alt_std = 3;
 batch_size = 1;
-hEstimator_ray = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+hEstimator_ray = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator_ray.hReferenceMapScanner = hReferenceMapScanner;
 
-hEstimator_slid = terrain.StateEstimatorTERCOM(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
+hEstimator_slid = terrain.StateEstimatorPF(N,hAircraft.Pose,range_part,range_part,0,alt_std,Ts,batch_size);
 hEstimator_slid.hReferenceMapScanner = hReferenceMapScanner;
 
 %% Game Loop
@@ -115,8 +115,10 @@ while simTime < Tf
     hRadar.orientationLiDAR = [hAircraft.Pose(4)*180/pi; 0; phi_r];
     %hRadar.positionLiDAR    =  [18920.5565878799 ; 5600.82778773042 ; z0];
     hRadar.positionLiDAR    =  hAircraft.Pose(1:3);
-    hRadar.scanTerrain(false);
-    %hRadar.scanAltimeter;
+    %hRadar.scanTerrain(false);
+    hRadar.scanAltimeter;
+    hReferenceMapScanner.flagScanAltimeter = hRadar.flagScanAltimeter;
+
 
     % Estimate using x-y grid overlaying and not full ray casting
     tic

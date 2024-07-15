@@ -1,6 +1,6 @@
 % This version is faster all other PF class, because there are no for loop
 
-classdef StateEstimatorPF < handle
+classdef StateEstimatorTERCOM_old < handle
 
     properties
 
@@ -34,6 +34,10 @@ classdef StateEstimatorPF < handle
         batch_Zr
         MAE_Batch_Part
         MAE_particles
+        old_index
+        count_est
+        MAE_particles_hist
+        MAE_particles_hist_b1
 
         PARAMS
         FITTING
@@ -42,7 +46,7 @@ classdef StateEstimatorPF < handle
     end
     %% PF Functions
     methods (Access = public)
-        function self = StateEstimatorPF(N,init_pos,x_span,y_span,exp_rate,alt_std,dt,batch_size)
+        function self = StateEstimatorTERCOM_old(N,init_pos,x_span,y_span,exp_rate,alt_std,dt,batch_size)
             % Defining properties
             rng(5,'twister')
 
@@ -53,9 +57,11 @@ classdef StateEstimatorPF < handle
             self.exp_rate = exp_rate;
             self.dt = dt;
             self.batch_size = batch_size;
-            self.batch_n_Part = ones(self.N,1);
-            %self.process_std = [5 0.02];
+            self.batch_n_Part = zeros(self.N,1);
             self.process_std = [5 0.02];
+            %self.process_std = [0 0];
+            self.old_index = 1:self.N;
+            self.count_est = 1;
 
 
             % Create uniformly distributed particles around aircraft with
@@ -96,30 +102,42 @@ classdef StateEstimatorPF < handle
             %particle w.r.t. radar Z value 
             self.find_MAE_particles(ptCloudRadar,flagRAYCAST);  % Nx81
 
-            if self.batch_n_Part == self.batch_size
+            % update weight based on MAE
+            self.update_weights(ptCloudRadar,flagRAYCAST)
 
-                % update weight based on MAE
-                self.update_weights(ptCloudRadar,flagRAYCAST)
+            % store mean and var value
+            [meann,var] = self.estimate();
+            param_estimate = [meann,var];
 
-                % store mean and var value
-                [meann,var] = self.estimate();
-                param_estimate = [meann,var];
+            % counting estimation times
+            self.count_est = self.count_est + 1;
 
-                % % resetting current batch
-                % self.batch_n = 1;
-            else 
-                % counting number of measurement in batch
-                self.batch_n_Part = self.batch_n_Part + 1;
 
-                %param_estimate = [];
-
-                % update weight based on MAE
-                self.update_weights(ptCloudRadar,flagRAYCAST)
-
-                % store mean and var value
-                [meann,var] = self.estimate();
-                param_estimate = [meann,var];
-            end
+            
+            % if self.batch_n_Part == self.batch_size
+            % 
+            %     % update weight based on MAE
+            %     self.update_weights(ptCloudRadar,flagRAYCAST)
+            % 
+            %     % store mean and var value
+            %     [meann,var] = self.estimate();
+            %     param_estimate = [meann,var];
+            % 
+            %     % % resetting current batch
+            %     % self.batch_n = 1;
+            % else 
+            %     % counting number of measurement in batch
+            %     self.batch_n_Part = self.batch_n_Part + 1;
+            % 
+            %     %param_estimate = [];
+            % 
+            %     % update weight based on MAE
+            %     self.update_weights(ptCloudRadar,flagRAYCAST)
+            % 
+            %     % store mean and var value
+            %     [meann,var] = self.estimate();
+            %     param_estimate = [meann,var];
+            % end
 
         end
 
@@ -136,8 +154,14 @@ classdef StateEstimatorPF < handle
             y_range_partc = [init_pos(2)-0.5*span_partc(2) init_pos(2)+0.5*span_partc(2)];
 
             particles = zeros(n_partc,4);
+            % %uniform distrubition
             particles(:, 1) = unifrnd(x_range_partc(1), x_range_partc(2), [n_partc 1]);
             particles(:, 2) = unifrnd(y_range_partc(1), y_range_partc(2), [n_partc 1]);
+
+            % % %gaussian dstrubition
+            % particles(:, 1) = normrnd(init_pos(1), span_partc(1)*0.25, [n_partc 1]);
+            % particles(:, 2) = normrnd(init_pos(2), span_partc(1)*0.25, [n_partc 1]);
+
             particles(:, 3) = init_pos(3);
             particles(:, 4) = init_pos(4);
         end
@@ -214,18 +238,25 @@ classdef StateEstimatorPF < handle
             %corr = -(self.Zr'*self.elev_particles_pc) / sqrt((self.Zr'*self.elev_particles_pc)*(self.elev_particles_pc'*self.elev_particles_pc));
 
             % find means of batch elements for finding final MAE
-            self.MAE_particles = mean(self.MAE_Batch_Part,2);
+            self.MAE_particles = cellfun(@mean,self.MAE_Batch_Part);
+            self.MAE_particles = self.MAE_particles;
+            self.MAE_particles_hist(:,self.count_est) = self.MAE_particles;
+            %temp = cell2mat(self.MAE_Batch_Part);
+            self.MAE_particles_hist_b1(:,self.count_est) = cellfun(@(x) x(end), self.MAE_Batch_Part);
             
-            % drop first column of batch array after each iteration
-            if self.batch_n_Part == self.batch_size
-                self.MAE_Batch_Part(:,1) = [];
-            end
+            % % drop first column of batch array after each iteration
+            % if self.batch_n_Part == self.batch_size
+            %     self.MAE_Batch_Part(:,1) = [];
+            % end
 
             %self.weights = self.weights .* (1/(self.alt_std*2.506628274631)) .* exp(-0.5 .* (self.corr./0.1).^2);
             self.weights = self.weights .* (1/(self.alt_std*sqrt(2*pi))) .* exp(-0.5 .* (self.MAE_particles./self.alt_std).^2);
 
             self.weights = self.weights + 1e-300; % preventing 0 weights value
             self.weights = self.weights ./ sum(self.weights); % normalizing weights after each update
+            % disp(self.weights)
+            % disp(self.MAE_particles)
+
 
             % Below code for resampling criteria. There are many methods to
             % choose when we should resample but we choose N_eff < N/2 criteria
@@ -262,7 +293,8 @@ classdef StateEstimatorPF < handle
             for i=1:self.N
 
                 % true altitude point cloud data
-                self.Zr = ptCloudRadar.Location(:,3);
+                self.Zr = ptCloudRadar.s.Location(:,3);
+                Zr_w = ptCloudRadar.w.Location(:,3);
                 n = numel(self.Zr);
 
                 x_particle = self.particles(i,1);
@@ -270,20 +302,39 @@ classdef StateEstimatorPF < handle
                 self.hReferenceMapScanner.positionLiDAR([1, 2]) = [x_particle y_particle];
                 %disp(self.hReferenceMapScanner.positionLiDAR)
                 if flagRAYCAST
-                    self.hReferenceMapScanner.scanTerrain(false);
-                    Z = self.hReferenceMapScanner.ptCloud.Location(:,3);
-                    particle_pc = self.hReferenceMapScanner.ptCloud.Location(:,1:2);
-                else
-                    XrYr = ptCloudRadar.Location(:,1:2);
-                    Z = zeros(n,1);
-                    for j=1:n
-                        Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
+
+                    % When Radar use RadarAltimeter for scaning terrain,
+                    % ReferenceMapScanner also should use RadarAltimeter
+                    if self.hReferenceMapScanner.flagScanAltimeter
+                        self.hReferenceMapScanner.scanAltimeter;
+                    else
+                        self.hReferenceMapScanner.scanTerrain(false);
                     end
-                    particle_pc = XrYr;
+                    Zs = self.hReferenceMapScanner.ptCloud.s.Location(:,3);
+                    Zw = self.hReferenceMapScanner.ptCloud.w.Location(:,3);
+
+                    particle_pc_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                else
+                    XrYr_s = ptCloudRadar.s.Location(:,1:2);
+                    XrYr_w = zeros(n,2);
+
+                    Zs = zeros(n,1);
+                    Zw = zeros(n,1);
+
+                    for j=1:n
+                        [Zs(j), Zw(j)] = self.hReferenceMapScanner.readAltimeter([XrYr_s(j,1);XrYr_s(j,2);self.Zr(j)]);
+                        XrYr_w(j,:) = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                    end
+                    % 
+                    % [Zs, Zw] = self.hReferenceMapScanner.readAltimeter_interp([XrYr_s self.Zr]);
+                    % XrYr_w = self.hReferenceMapScanner.ptCloud.w.Location(:,1:2);
+                    % %Z(j) = self.hReferenceMapScanner.readAltimeter([XrYr(j,1);XrYr(j,2);0]);
+                    
+                    particle_pc_w = XrYr_w;
                 end
 
                 % TO RESOLVE LATER. Decide the best way to treat NANs.
-                idx = or(isnan(Z),isnan(self.Zr));
+                idx = or(isnan(Zw),isnan(Zr_w));
                 flag = 1;
                 if flag == 0
                     % Using world frame, with NaNs replaced by zeros
@@ -293,10 +344,10 @@ classdef StateEstimatorPF < handle
                 elseif flag == 1
                     % Deleting NaNs
                     self.non_idx(i,:) = idx;
-                    Z(idx) = [];
-                    self.Zr(idx) = [];
+                    Zw(idx) = [];
+                    Zr_w(idx) = [];
                     %size(particle_pc)
-                    particle_pc(idx,:) = [];
+                    particle_pc_w(idx,:) = [];
                     %size(particle_pc)
                 elseif flag == 2
                     % Using local frame with NaNs replaced by zero w.r.t. sensor frame
@@ -306,7 +357,7 @@ classdef StateEstimatorPF < handle
 
                 %self.elev_particles_pc = zeros(self.N,length(Z));
 
-                self.elev_particles_pc{i} = Z; 
+                self.elev_particles_pc{i,self.count_est} = Zw; 
 
                 %size(self.elev_particles_pc)
 
@@ -315,23 +366,28 @@ classdef StateEstimatorPF < handle
                 
                 %self.mean_sqrd_error(i,1) = sqrt(mean((self.elev_particles_pc{i} - self.Zr).^2,1));
                 if (self.batch_n_Part(i) ~= self.batch_size)
-                    if ~isempty(self.Zr)
-                        self.MAE_Batch_Part(i,self.batch_n_Part(i)) = mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                    % increase batch_n of ith particle
+                    self.batch_n_Part(i) = self.batch_n_Part(i) + 1;
+                    if ~isempty(Zr_w)
+                        self.MAE_Batch_Part{i,1}(self.batch_n_Part(i)) = mean(abs(Zw - Zr_w),1);
                     else
-                        self.MAE_Batch_Part(i,self.batch_n_Part) = 999;
+                        self.MAE_Batch_Part{i,1}(self.batch_n_Part(i)) = 999;
                     end
                 else
                     % drop first column of batch in every iteration
-                    %self.MAE_nthBatch_ithPart(:,1) = [];
-                    if ~isempty(self.Zr)
+                    self.MAE_Batch_Part{i,1}(1) = [];
+                    if ~isempty(Zr_w)
                         % add new MAE to end of batch array
-                        self.MAE_Batch_Part(i,self.batch_size) =  mean(abs(self.elev_particles_pc{i} - self.Zr),1);
+                        self.MAE_Batch_Part{i,1}(self.batch_size) =  mean(abs(Zw - Zr_w),1);
                     else
-                        self.MAE_Batch_Part(i,self.batch_size) = 999;
+                        self.MAE_Batch_Part{i,1}(self.batch_size) = 999;
                     end
                 end
-                self.particles_pc{i} = [particle_pc Z];
-                self.radar_Z{i} = self.Zr;
+                self.particles_pc{i} = [particle_pc_w Zw];
+                if isempty(self.particles_pc{i})
+                    self.particles_pc{i} = NaN(1,3);
+                end
+                self.radar_Z{1,self.count_est} = Zr_w;
 
                 % 
                 % idx_err = isnan(self.mean_sqrd_error);
@@ -409,8 +465,8 @@ classdef StateEstimatorPF < handle
             % Taking weighted mean and var of particles for estimation
             % returns mean and variance of the weighted particles
             pos = self.particles(:,:);
-            meann = sum(pos .* self.weights) / sum(self.weights);
-            var  = sum((pos - meann).^2 .* self.weights) / sum(self.weights);
+            meann = sum(pos .* self.weights,1) / sum(self.weights);
+            var  = sum((pos - meann).^2 .* self.weights,1) / sum(self.weights);
 
             self.meann = meann;
             self.var = sqrt(var(1)^2 + var(2)^2);
@@ -471,19 +527,33 @@ classdef StateEstimatorPF < handle
             if (self.exp_rate ~= 0) && ~isempty(self.meann) 
 
                 n_rand_partc = round(self.N*self.exp_rate);
-                sample_indx = randsample(indexes, self.N - n_rand_partc);
+                indexes = randsample(indexes, self.N - n_rand_partc);
 
                 range_rand_part = [2*self.x_span ; 2*self.y_span];
 
                 %disp(self.weights)
-
                 rand_partc = self.create_uniform_particles(n_rand_partc,self.meann,range_rand_part);
-
-                self.particles = [self.particles(sample_indx,:) ; rand_partc];
+                self.particles = [self.particles(indexes,:) ; rand_partc];
             else
-                disp(indexes)
                 self.particles = self.particles(indexes,:);
             end
+
+            disp('---------------------------------------')
+            disp('--------------Resampled----------------')
+            disp('---------------------------------------')
+
+            % reset batch and batch_n of resampled particle
+            % changed_part_idx = self.old_index ~= indexes;
+            % self.MAE_Batch_Part(changed_part_idx) = {[]};
+            % self.batch_n_Part(changed_part_idx) = 0;
+            % self.old_index = indexes;
+
+
+            % reset batch and batch_n of resampled particle
+            %changed_part_idx = self.old_index ~= indexes;
+            self.MAE_Batch_Part(:) = {[]};
+            self.batch_n_Part(:) = 0;
+            %self.old_index = indexes;
 
             self.weights = ones(length(self.particles),1)/length(self.particles);
         end
