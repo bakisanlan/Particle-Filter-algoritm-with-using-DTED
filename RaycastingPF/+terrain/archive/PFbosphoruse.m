@@ -7,7 +7,7 @@ clc; clear; close all;
 rng('default');
 
 %% Create simulation objects
-scene = 1;
+scene = 'BP';
 hDEM                    = terrain.DigitalElevationModel(scene);
 hRadar                  = terrain.RayCasting3DMesh;
 hReferenceMapScanner    = terrain.RayCasting3DMesh;
@@ -22,9 +22,9 @@ hRadar.rayRange = 1500;
 % DEM settings
 % Downsampled by 10, thus 300m resolution
 % bosphorus
-if scene == 1
+if scene == 'BP'
     hRadar.DTED = hDEM.getMetricGridElevationMap([41 29],[41.30 29.20], 10);
-elseif scene == 2
+elseif scene == 'GC'
     left_lower = [36.18777778 -112.54111111];
     right_upper = [36.38000000 -112.31166667];
     hRadar.DTED = hDEM.getMetricGridElevationMap(left_lower,right_upper, 10);
@@ -64,14 +64,14 @@ TracePose = [hAircraft.Pose];
 TraceEstimatedPose = [];
 
 % Estimator settings
-hEstimator = terrain.StateEstimatorPF(200,hAircraft.Pose,500,500,0,3,Ts);
+hEstimator = terrain.StateEstimatorPF(200,hAircraft.Pose,200,200,0,3,Ts);
 hEstimator.hReferenceMapScanner = hReferenceMapScanner;
 
 %% Game Loop
 %r = rateControl(1/Ts);
 %reset(r);
 simTime = 0;
-Tf = 200;
+Tf = 10;
 
 while simTime < Tf
 

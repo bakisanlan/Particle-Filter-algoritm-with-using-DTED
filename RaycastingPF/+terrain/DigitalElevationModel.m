@@ -12,25 +12,26 @@ classdef DigitalElevationModel < handle
         R;          % Spatial reference for the data grid A
         latitudes   % Latitudes for the data grid A
         longitudes  % Longitudes for the data grid A
+        cmap
     end
 
     methods
-        function obj = DigitalElevationModel(scene)
+        function obj = DigitalElevationModel(area)
             %DigitalElevationModel Constructs a DEM terrain object.
 
             obj.mapWidth = 1000;
 
             % Load elevation data from file
 
-            if scene == 1
-            obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
-                'data/n41_e029_1arc_v3.dt2'));
-            elseif scene ==2
-
-            obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
-                'data/n36_w113_1arc_v3.dt2'));
+            if strcmpi(area,'BP')
+                obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
+                    'data/n41_e029_1arc_v3.dt2'));
+            elseif strcmpi(area,'GC')
+               obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
+                    'data/n36_w113_1arc_v3.dt2'));
+            else
+                error('Enter a valid area name.')
             end
-
         end
 
         function loadData(obj,filename)
@@ -89,7 +90,7 @@ classdef DigitalElevationModel < handle
             dted = [{x}, {y}, {z}];
         end
 
-        function visualizeDTED(obj,lla,ll0)
+        function visualizeDTED(obj,left_lower_lla,right_upper_lla)
             %visualizeDTED For testing purposes.
             %   This file loads and visualize DTED at (41N, 29E) of the
             %   Bosphorus.
@@ -99,19 +100,22 @@ classdef DigitalElevationModel < handle
             % geoshow(flip(obj.A),obj.R,"DisplayType","surface");
             % cmap = demcmap(obj.A,16); colormap(hF1,cmap); colorbar;
 
-            % hF2 = figure; clf;
+            hF2 = figure; clf;
             % title('Aircraft DTED Path Map')
-            [As, Rs, lats, lons] = slice(obj,lla,ll0);
+            [As, Rs, lats, lons] = slice(obj,left_lower_lla,right_upper_lla);
             % usamap(Rs.LatitudeLimits,Rs.LongitudeLimits);
             % geoshow(flip(As),Rs,"DisplayType","surface");
-            cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
+            obj.cmap = demcmap(As,16); %colormap(hF2,cmap); colorbar;
 
-            hF3 = figure; clf;
-            mesh(lons, lats, As);
+            %hF3 = figure; clf;
+            a = mesh(lons, lats, As,'DisplayName','DTED Mesh');
+            set(a,'FaceColor','flat','EdgeColor','none')
             %pbaspect([1 1 0.05]); %view(-7,31);
             axis([min(lons) max(lons) min(lats) max(lats)]);
             xlabel('Longitude');ylabel('Latitude');zlabel('Elevation');
-            colormap(hF3,cmap); colorbar('Location','westoutside');
+            ax = gca;
+            colormap(ax,cmap2gray(obj.cmap)); %colorbar('Location','westoutside');
+            %daspect([1 1 1]);
         end
 
     end

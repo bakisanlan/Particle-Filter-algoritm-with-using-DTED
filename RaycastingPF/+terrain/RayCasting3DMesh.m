@@ -44,6 +44,28 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
 
         end
 
+        function [xs,ys,zs,xw,yw,zw] = sliding(obj,location_w)
+
+            psi_s = obj.orientationLiDAR(1);
+            phi_s = obj.orientationLiDAR(3);
+
+            zw = interp2(obj.DTED{1},obj.DTED{2},obj.DTED{3},location_w(:,1),location_w(:,2));
+            location_w(:,3) = zw;
+
+            [row, col] = size(location_w);
+            location_w_cell = mat2cell(location_w, ones(1, row), col);
+            % Apply the wPOSEs function to each row (cell)
+            resultCellArray = cellfun(@(x) terrain.AbstractRayCasting3D.sPOSEw(obj.positionLiDAR,x,psi_s,phi_s), location_w_cell, 'UniformOutput', false);
+            % Convert the cell array back to a matrix
+            resultArray = cell2mat(resultCellArray);
+            resultArray = reshape(resultArray,col+1,row);
+            location_s = resultArray';
+            location_s = location_s(:,1:3);
+
+            xw = location_w(:,1); yw = location_w(:,2); zw = location_w(:,3);
+            xs = location_s(:,1); ys = location_s(:,2); zs = location_s(:,3);
+        end
+
         function [xs,ys,zs,xw,yw,zw] = raycast(obj, theta, psi_r)
             %RAYCAST Shooting a ray, ray casting, at an angle PSI from the
             %z-axis of ENU and THETA about the y-axis of the intermediate
@@ -62,9 +84,11 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
 
             [xw,yw,zw] = deal(nan); [xs,ys,zs] = deal(nan);
             psi_s = obj.orientationLiDAR(1);
+            phi_s = obj.orientationLiDAR(3);
 
             r0 = obj.positionLiDAR;
-            D = terrain.AbstractRayCasting3D.wRs(psi_s)*...
+            D = terrain.AbstractRayCasting3D.wRsi(psi_s)*...
+                terrain.AbstractRayCasting3D.siRs(phi_s)*... 
                 terrain.AbstractRayCasting3D.sRi1(psi_r)*...
                 terrain.AbstractRayCasting3D.i1Rr(theta)* [1;0;0];
 
@@ -76,7 +100,11 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
             Z = obj.DTED{3}(iy,ix);
 
             % Get the single square mesh orthogonally below if THETA = 90;
-            if theta == 90
+            % When Altimeter is used, looking just below is not correct,
+            % because  might be there is no gimball. While there is bank 
+            % angle deflection, rays should be scan over terrain through 
+            % ray range limits.
+            if theta == 90 && ~obj.flagScanAltimeter
                 idx_x = find(X > r0(1),1);
                 idx_y = find(Y > r0(2),1);
                 if isempty(idx_x) || isempty(idx_y) || (idx_x == 1) || (idx_y == 1)
@@ -123,8 +151,9 @@ classdef RayCasting3DMesh < terrain.AbstractRayCasting3D
                                 yw = V0(2) + u*E1(2) + v*E2(2);
                                 zw = V0(3) + u*E1(3) + v*E2(3);
                                 % In sensor frame
-                                xyz_s = transpose(terrain.AbstractRayCasting3D.wRs(psi_s,true)) * ...
-                                    terrain.AbstractRayCasting3D.rTs(-obj.positionLiDAR) * [xw;yw;zw;1];
+                                xyz_s = transpose(terrain.AbstractRayCasting3D.siRs(phi_s,true)) * ...
+                                        transpose(terrain.AbstractRayCasting3D.wRsi(psi_s,true)) * ...
+                                        terrain.AbstractRayCasting3D.rTs(-obj.positionLiDAR) * [xw;yw;zw;1];
                                 xs = xyz_s(1); ys =  xyz_s(2); zs =  xyz_s(3);
                                 return;
                             end
