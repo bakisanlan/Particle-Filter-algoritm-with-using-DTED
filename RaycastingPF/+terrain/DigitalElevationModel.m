@@ -21,7 +21,7 @@ classdef DigitalElevationModel < handle
 
             obj.mapWidth = 1000;
 
-            % Load elevation data from fill
+            % Load elevation data from file
 
             if strcmpi(area,'BP')
                 obj.loadData(fullfile(fileparts(mfilename('fullpath')),...
